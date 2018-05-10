@@ -118,6 +118,8 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("weight_viapoint", optim.weight_viapoint, optim.weight_viapoint);
   nh.param("weight_prefer_rotdir", optim.weight_prefer_rotdir, optim.weight_prefer_rotdir);
   nh.param("weight_adapt_factor", optim.weight_adapt_factor, optim.weight_adapt_factor);
+  nh.param("nonlinear_obst_cost_exponent", optim.nonlinear_obst_cost_exponent, optim.nonlinear_obst_cost_exponent);
+  nh.param("nonlinear_obst_cost_factor", optim.nonlinear_obst_cost_factor, optim.nonlinear_obst_cost_factor);
   
   // Homotopy Class Planner
   nh.param("enable_homotopy_class_planning", hcp.enable_homotopy_class_planning, hcp.enable_homotopy_class_planning); 
@@ -224,6 +226,8 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   optim.weight_dynamic_obstacle_inflation = cfg.weight_dynamic_obstacle_inflation;
   optim.weight_viapoint = cfg.weight_viapoint;
   optim.weight_adapt_factor = cfg.weight_adapt_factor;
+  optim.nonlinear_obst_cost_exponent = cfg.nonlinear_obst_cost_exponent;
+  optim.nonlinear_obst_cost_factor = cfg.nonlinear_obst_cost_factor;
   
   // Homotopy Class Planner
   hcp.enable_multithreading = cfg.enable_multithreading;

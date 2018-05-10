@@ -217,10 +217,17 @@ public:
 
     double dist = robot_model_->calculateDistance(bandpt->pose(), _measurement);
 
+    // First, get the straight line cost
     _error[0] = penaltyBoundFromBelow(dist, cfg_->obstacles.min_obstacle_dist, cfg_->optim.penalty_epsilon);
+
+    // Add a nonlinear component
+    if (cfg_->optim.nonlinear_obst_cost_exponent != 1.0 && cfg_->obstacles.min_obstacle_dist > 0.0)
+    _error[0] += cfg_->optim.nonlinear_obst_cost_factor * std::pow(_error[0] / cfg_->obstacles.min_obstacle_dist, cfg_->optim.nonlinear_obst_cost_exponent);
+
+    // Extra linear inflation cost
     _error[1] = penaltyBoundFromBelow(dist, cfg_->obstacles.inflation_dist, 0.0);
 
-    
+
     ROS_ASSERT_MSG(std::isfinite(_error[0]) && std::isfinite(_error[1]), "EdgeObstacle::computeError() _error[0]=%f, _error[1]=%f\n",_error[0], _error[1]);
   }
 
