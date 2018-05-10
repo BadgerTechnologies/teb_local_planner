@@ -116,8 +116,13 @@ bool HomotopyClassPlanner::plan(const PoseSE2& start, const PoseSE2& goal, const
   updateReferenceTrajectoryViaPoints(cfg_->hcp.viapoints_all_candidates);
   // Optimize all trajectories in alternative homotopy classes
   optimizeAllTEBs(cfg_->optim.no_inner_iterations, cfg_->optim.no_outer_iterations);
-  // Delete any detours
-  deleteTebDetours(-0.1);
+
+  // Delete any detours and non-optimizable Teb's
+  // NOTE: Effectively disable detour deletion by setting the dot product
+  // threshold < -1. This is can avoid some failures that can occur
+  // when the best path really does require backing up.
+  deleteTebDetours(-2);
+
   // Select which candidate (based on alternative homotopy classes) should be used
   selectBestTeb();
 
