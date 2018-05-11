@@ -48,6 +48,7 @@
 
 // this package
 #include <teb_local_planner/pose_se2.h>
+#include <teb_local_planner/visualization.h>
 
 // messages
 #include <geometry_msgs/PoseArray.h>
@@ -156,6 +157,10 @@ public:
    * Overwrite this method to provide an interface to perform all planner related visualizations at once.
    */ 
   virtual void visualize()
+  {
+  }
+
+  virtual void setVisualization(TebVisualizationPtr visualization)
   {
   }
   
