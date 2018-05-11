@@ -157,13 +157,15 @@ void HomotopyClassPlanner::visualize()
     visualization_->publishTebContainer(tebs_);
 
     // Visualize best teb and feedback message if desired
-    TebOptimalPlannerConstPtr best_teb = bestTeb();
-    if (best_teb)
+    TebOptimalPlannerConstPtr vis_teb = bestTeb();
+    if (!vis_teb)
+      vis_teb = infeasible_teb_;
+    if (vis_teb)
     {
-      visualization_->publishLocalPlanAndPoses(best_teb->teb());
+      visualization_->publishLocalPlanAndPoses(vis_teb->teb());
 
-      if (best_teb->teb().sizePoses() > 0) //TODO maybe store current pose (start) within plan method as class field.
-        visualization_->publishRobotFootprintModel(best_teb->teb().Pose(0), *robot_model_);
+      if (vis_teb->teb().sizePoses() > 0) //TODO maybe store current pose (start) within plan method as class field.
+        visualization_->publishRobotFootprintModel(vis_teb->teb().Pose(0), *robot_model_);
 
       // feedback message
       if (cfg_->trajectory.publish_feedback)
@@ -658,7 +660,10 @@ TebOptimalPlannerPtr HomotopyClassPlanner::selectBestTeb()
 
     }
 
-
+    if (best_teb_)
+    {
+      infeasible_teb_.reset();
+    }
     return best_teb_;
 }
 
@@ -694,6 +699,7 @@ bool HomotopyClassPlanner::isTrajectoryFeasible(base_local_planner::CostmapModel
     feasible = best->isTrajectoryFeasible(costmap_model, footprint_spec, inscribed_radius, circumscribed_radius, look_ahead_idx);
     if(!feasible)
     {
+      infeasible_teb_ = best;
       removeTeb(best);
       if(last_best_teb_ && (last_best_teb_ == best)) // Same plan as before.
         return feasible;                             // Not failing could result in oscillations between trajectories.

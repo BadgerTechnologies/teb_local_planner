@@ -576,6 +576,7 @@ protected:
 
   TebOptimalPlannerPtr last_best_teb_;  //!< Points to the plan used in the previous control cycle
 
+  TebOptimalPlannerPtr infeasible_teb_;  //!< Preserve the failed teb for visualization
 
 
 public:
