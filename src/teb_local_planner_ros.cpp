@@ -99,6 +99,8 @@ void TebLocalPlannerROS::initialize(std::string name, tf2_ros::Buffer* tf, costm
         
     // create visualization instance	
     visualization_ = TebVisualizationPtr(new TebVisualization(nh, cfg_)); 
+    ros::NodeHandle failure_nh("~/" + name + "/failure");
+    visualization_failure_ = TebVisualizationPtr(new TebVisualization(failure_nh, cfg_));
         
     // create robot footprint/contour model for optimization
     RobotFootprintModelPtr robot_model = getRobotFootprintFromParamServer(nh);
@@ -348,6 +350,7 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
   bool success = planner_->plan(transformed_plan, &robot_vel_, cfg_.goal_tolerance.free_goal_vel);
   if (!success)
   {
+    visualize(visualization_failure_);
     planner_->clearPlanner(); // force reinitialization for next time
     ROS_WARN("teb_local_planner was not able to obtain a local plan for the current setting.");
     
@@ -370,7 +373,7 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
   if (!feasible)
   {
     cmd_vel.twist.linear.x = cmd_vel.twist.linear.y = cmd_vel.twist.angular.z = 0;
-
+    visualize(visualization_failure_);
     // now we reset everything to start again with the initialization of new trajectories.
     planner_->clearPlanner();
     ROS_WARN("TebLocalPlannerROS: trajectory is not feasible. Resetting planner...");
@@ -386,6 +389,7 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
   if (!planner_->getVelocityCommand(cmd_vel.twist.linear.x, cmd_vel.twist.linear.y, cmd_vel.twist.angular.z, cfg_.trajectory.control_look_ahead_poses))
 
   {
+    visualize(visualization_failure_);
     planner_->clearPlanner();
     ROS_WARN("TebLocalPlannerROS: velocity command invalid. Resetting planner...");
     ++no_infeasible_plans_; // increase number of infeasible solutions in a row
@@ -410,6 +414,7 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
     {
       cmd_vel.twist.linear.x = cmd_vel.twist.linear.y = cmd_vel.twist.angular.z = 0;
       last_cmd_ = cmd_vel.twist;
+      visualize(visualization_failure_);
       planner_->clearPlanner();
       ROS_WARN("TebLocalPlannerROS: Resulting steering angle is not finite. Resetting planner...");
       ++no_infeasible_plans_; // increase number of infeasible solutions in a row
@@ -426,13 +431,18 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
   last_cmd_ = cmd_vel.twist;
   
   // Now visualize everything    
+  visualize(visualization_);
+  return true;
+}
+
+void TebLocalPlannerROS::visualize(const TebVisualizationPtr visualization)
+{
+  planner_->setVisualization(visualization);
   planner_->visualize();
   visualization_->publishObstacles(obstacles_);
   visualization_->publishViaPoints(via_points_);
   visualization_->publishGlobalPlan(global_plan_);
-  return mbf_msgs::ExePathResult::SUCCESS;
 }
-
 
 bool TebLocalPlannerROS::isGoalReached()
 {
