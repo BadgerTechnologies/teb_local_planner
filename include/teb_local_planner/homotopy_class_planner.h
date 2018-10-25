@@ -467,6 +467,7 @@ public:
   const EquivalenceClassContainer& getEquivalenceClassRef() const  {return equivalence_classes_;}
 
 
+  virtual TimedElasticBand& getTeb() { return best_teb_->getTeb(); }
 protected:
 
   /** @name Explore new paths and keep only a single one for each homotopy class */
