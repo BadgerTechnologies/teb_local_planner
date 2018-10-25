@@ -363,18 +363,44 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     return false;
   }
 
+  geometry_msgs::Twist cmd_vel0;
   // Get the velocity command for this sampling interval
-  if (!planner_->getVelocityCommand(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.trajectory.control_look_ahead_poses))
+  if (!planner_->getVelocityCommand(cmd_vel0.linear.x, cmd_vel0.linear.y, cmd_vel0.angular.z, cfg_.trajectory.control_look_ahead_poses))
   {
     visualize(visualization_failure_);
     planner_->clearPlanner();
     ROS_WARN("TebLocalPlannerROS: velocity command invalid. Resetting planner...");
     ++no_infeasible_plans_; // increase number of infeasible solutions in a row
     time_last_infeasible_plan_ = ros::Time::now();
-    last_cmd_ = cmd_vel;
+    last_cmd_ = cmd_vel0;
     return false;
   }
-  
+
+  {
+    // Get robot pose
+    tf::Stamped<tf::Pose> robot_pose;
+    costmap_ros_->getRobotPose(robot_pose);
+    PoseSE2 pose1(robot_pose);
+
+    PoseSE2& pose2 = planner_->getTeb().Pose(1);
+    double vx, omega;
+    double dt = planner_->getTeb().TimeDiff(0);
+
+    Eigen::Vector2d deltaS = pose2.position() - pose1.position();
+
+    Eigen::Vector2d conf1dir( cos(pose1.theta()), sin(pose1.theta()) );
+    // translational velocity
+    double dir = deltaS.dot(conf1dir);
+    vx = (double) g2o::sign(dir) * deltaS.norm()/dt;
+
+    // rotational velocity
+    double orientdiff = g2o::normalize_theta(pose2.theta() - pose1.theta());
+    omega = 1 * orientdiff/dt;
+
+    cmd_vel.linear.x = vx;
+    cmd_vel.angular.z = omega;
+  }
+
   // Saturate velocity, if the optimization results violates the constraints (could be possible due to soft constraints).
   saturateVelocity(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.robot.max_vel_x, cfg_.robot.max_vel_y,
                    cfg_.robot.max_vel_theta, cfg_.robot.max_vel_x_backwards);
