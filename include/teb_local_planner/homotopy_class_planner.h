@@ -123,7 +123,7 @@ public:
    * @param visualization Shared pointer to the TebVisualization class (optional)
    * @param via_points Container storing via-points (optional)
    */
-  HomotopyClassPlanner(const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = boost::make_shared<PointRobotFootprint>(),
+  HomotopyClassPlanner(costmap_2d::Costmap2D*  costmap, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = boost::make_shared<PointRobotFootprint>(),
                        TebVisualizationPtr visualization = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
 
   /**
@@ -506,6 +506,7 @@ protected:
 
 
   // external objects (store weak pointers)
+  costmap_2d::Costmap2D* costmap_;  
   const TebConfig* cfg_; //!< Config class that stores and manages all related parameters
   ObstContainer* obstacles_; //!< Store obstacles that are relevant for planning
   const ViaPointContainer* via_points_; //!< Store the current list of via-points

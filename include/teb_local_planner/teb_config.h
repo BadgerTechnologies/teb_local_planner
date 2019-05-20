@@ -157,6 +157,11 @@ public:
     
     double weight_adapt_factor; //!< Some special weights (currently 'weight_obstacle') are repeatedly scaled by this factor in each outer TEB iteration (weight_new = weight_old*factor); Increasing weights iteratively instead of setting a huge value a-priori leads to better numerical conditions of the underlying optimization problem.
     double obstacle_cost_exponent; //!< Exponent for nonlinear obstacle cost (cost = linear_cost * obstacle_cost_exponent). Set to 1 to disable nonlinear cost (default)
+    double weight_costmap;
+    double weight_costmap_exponential;
+    double weight_costmap_exponential_shift;
+    double weight_costmap_linear;
+    double weight_costmap_linear_slope;
   } optim; //!< Optimization related parameters
   
   

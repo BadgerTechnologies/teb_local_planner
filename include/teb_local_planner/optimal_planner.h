@@ -68,6 +68,7 @@
 #include <teb_local_planner/g2o_types/edge_dynamic_obstacle.h>
 #include <teb_local_planner/g2o_types/edge_via_point.h>
 #include <teb_local_planner/g2o_types/edge_prefer_rotdir.h>
+#include <teb_local_planner/g2o_types/edge_2d_costmap.h>
 
 // messages
 #include <nav_msgs/Path.h>
@@ -124,7 +125,7 @@ public:
    * @param visual Shared pointer to the TebVisualization class (optional)
    * @param via_points Container storing via-points (optional)
    */
-  TebOptimalPlanner(const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = boost::make_shared<PointRobotFootprint>(),
+  TebOptimalPlanner(costmap_2d::Costmap2D* costmap, const TebConfig& cfg, ObstContainer* obstacles = NULL, RobotFootprintModelPtr robot_model = boost::make_shared<PointRobotFootprint>(),
                     TebVisualizationPtr visual = TebVisualizationPtr(), const ViaPointContainer* via_points = NULL);
   
   /**
@@ -625,7 +626,12 @@ protected:
    * @param weight_multiplier Specify an additional weight multipler (in addition to the the config weight)
    */
   void AddEdgesObstaclesLegacy(double weight_multiplier=1.0);
-  
+
+  /**
+   * @brief Add edges to query the costmap directly.
+   */
+  void AddEdges2DCostmap();
+
   /**
    * @brief Add all edges (local cost functions) related to minimizing the distance to via-points
    * @see EdgeViaPoint
@@ -682,6 +688,7 @@ protected:
     
 
   // external objects (store weak pointers)
+  costmap_2d::Costmap2D* costmap_;  
   const TebConfig* cfg_; //!< Config class that stores and manages all related parameters
   ObstContainer* obstacles_; //!< Store obstacles that are relevant for planning
   const ViaPointContainer* via_points_; //!< Store via points for planning

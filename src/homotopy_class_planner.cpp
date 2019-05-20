@@ -41,13 +41,14 @@
 namespace teb_local_planner
 {
 
-HomotopyClassPlanner::HomotopyClassPlanner() : cfg_(NULL), obstacles_(NULL), via_points_(NULL), robot_model_(new PointRobotFootprint()), initial_plan_(NULL), initialized_(false)
+HomotopyClassPlanner::HomotopyClassPlanner() : costmap_(NULL), cfg_(NULL), obstacles_(NULL), via_points_(NULL), robot_model_(new PointRobotFootprint()), initial_plan_(NULL), initialized_(false)
 {
 }
 
-HomotopyClassPlanner::HomotopyClassPlanner(const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model,
+HomotopyClassPlanner::HomotopyClassPlanner(costmap_2d::Costmap2D* costmap, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model,
                                            TebVisualizationPtr visual, const ViaPointContainer* via_points) : initial_plan_(NULL)
 {
+  costmap_ = costmap;
   initialize(cfg, obstacles, robot_model, visual, via_points);
 }
 
@@ -352,7 +353,7 @@ void HomotopyClassPlanner::exploreEquivalenceClassesAndInitTebs(const PoseSE2& s
 
 TebOptimalPlannerPtr HomotopyClassPlanner::addAndInitNewTeb(const PoseSE2& start, const PoseSE2& goal, const geometry_msgs::Twist* start_velocity)
 {
-  TebOptimalPlannerPtr candidate =  TebOptimalPlannerPtr( new TebOptimalPlanner(*cfg_, obstacles_, robot_model_));
+    TebOptimalPlannerPtr candidate =  TebOptimalPlannerPtr( new TebOptimalPlanner(costmap_, *cfg_, obstacles_, robot_model_));
 
   candidate->teb().initTrajectoryToGoal(start, goal, 0, cfg_->robot.max_vel_x, cfg_->trajectory.min_samples, cfg_->trajectory.allow_init_with_backwards_motion);
 
@@ -375,7 +376,7 @@ TebOptimalPlannerPtr HomotopyClassPlanner::addAndInitNewTeb(const PoseSE2& start
 
 TebOptimalPlannerPtr HomotopyClassPlanner::addAndInitNewTeb(const std::vector<geometry_msgs::PoseStamped>& initial_plan, const geometry_msgs::Twist* start_velocity)
 {
-  TebOptimalPlannerPtr candidate = TebOptimalPlannerPtr( new TebOptimalPlanner(*cfg_, obstacles_, robot_model_));
+    TebOptimalPlannerPtr candidate = TebOptimalPlannerPtr( new TebOptimalPlanner(costmap_, *cfg_, obstacles_, robot_model_));
 
   candidate->teb().initTrajectoryToGoal(initial_plan, cfg_->robot.max_vel_x, true, cfg_->trajectory.min_samples, cfg_->trajectory.allow_init_with_backwards_motion);
 

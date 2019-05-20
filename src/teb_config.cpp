@@ -226,6 +226,11 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   optim.weight_viapoint = cfg.weight_viapoint;
   optim.weight_adapt_factor = cfg.weight_adapt_factor;
   optim.obstacle_cost_exponent = cfg.obstacle_cost_exponent;
+  optim.weight_costmap = cfg.weight_costmap;
+  optim.weight_costmap_exponential = cfg.weight_costmap_exponential;
+  optim.weight_costmap_exponential_shift = cfg.weight_costmap_exponential_shift;
+  optim.weight_costmap_linear = cfg.weight_costmap_linear;
+  optim.weight_costmap_linear_slope = cfg.weight_costmap_linear_slope;
   
   // Homotopy Class Planner
   hcp.enable_multithreading = cfg.enable_multithreading;

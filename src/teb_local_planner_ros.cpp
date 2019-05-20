@@ -99,25 +99,25 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
         
     // create robot footprint/contour model for optimization
     RobotFootprintModelPtr robot_model = getRobotFootprintFromParamServer(nh);
+
+    costmap_ros_ = costmap_ros;
+    costmap_ = costmap_ros_->getCostmap(); // locking should be done in MoveBase.
+    costmap_model_ = boost::make_shared<base_local_planner::CostmapModel>(*costmap_);
     
     // create the planner instance
     if (cfg_.hcp.enable_homotopy_class_planning)
     {
-      planner_ = PlannerInterfacePtr(new HomotopyClassPlanner(cfg_, &obstacles_, robot_model, visualization_, &via_points_));
+      planner_ = PlannerInterfacePtr(new HomotopyClassPlanner(costmap_, cfg_, &obstacles_, robot_model, visualization_, &via_points_));
       ROS_INFO("Parallel planning in distinctive topologies enabled.");
     }
     else
     {
-      planner_ = PlannerInterfacePtr(new TebOptimalPlanner(cfg_, &obstacles_, robot_model, visualization_, &via_points_));
+      planner_ = PlannerInterfacePtr(new TebOptimalPlanner(costmap_, cfg_, &obstacles_, robot_model, visualization_, &via_points_));
       ROS_INFO("Parallel planning in distinctive topologies disabled.");
     }
     
     // init other variables
     tf_ = tf;
-    costmap_ros_ = costmap_ros;
-    costmap_ = costmap_ros_->getCostmap(); // locking should be done in MoveBase.
-    
-    costmap_model_ = boost::make_shared<base_local_planner::CostmapModel>(*costmap_);
 
     global_frame_ = costmap_ros_->getGlobalFrameID();
     cfg_.map_frame = global_frame_; // TODO
@@ -126,6 +126,7 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     //Initialize a costmap to polygon converter
     if (!cfg_.obstacles.costmap_converter_plugin.empty())
     {
+#if 1 /* RLH: turn off costmap-converter */
       try
       {
         costmap_converter_ = costmap_converter_loader_.createInstance(cfg_.obstacles.costmap_converter_plugin);
@@ -144,6 +145,7 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
         ROS_WARN("The specified costmap converter plugin cannot be loaded. All occupied costmap cells are treaten as point obstacles. Error message: %s", ex.what());
         costmap_converter_.reset();
       }
+#endif
     }
     else 
       ROS_INFO("No costmap conversion plugin specified. All occupied costmap cells are treaten as point obstacles.");

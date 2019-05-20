@@ -46,13 +46,14 @@ namespace teb_local_planner
 
 // ============== Implementation ===================
 
-TebOptimalPlanner::TebOptimalPlanner() : cfg_(NULL), obstacles_(NULL), via_points_(NULL), cost_(HUGE_VAL), prefer_rotdir_(RotType::none),
+TebOptimalPlanner::TebOptimalPlanner() : costmap_(NULL), cfg_(NULL), obstacles_(NULL), via_points_(NULL), cost_(HUGE_VAL), prefer_rotdir_(RotType::none),
                                          robot_model_(new PointRobotFootprint()), initialized_(false), optimized_(false)
 {    
 }
   
-TebOptimalPlanner::TebOptimalPlanner(const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model, TebVisualizationPtr visual, const ViaPointContainer* via_points)
-{    
+TebOptimalPlanner::TebOptimalPlanner(costmap_2d::Costmap2D*  costmap, const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model, TebVisualizationPtr visual, const ViaPointContainer* via_points)
+{
+  costmap_ = costmap;
   initialize(cfg, obstacles, robot_model, visual, via_points);
 }
 
@@ -137,6 +138,7 @@ void TebOptimalPlanner::registerG2OTypes()
   factory->registerType("EDGE_DYNAMIC_OBSTACLE", new g2o::HyperGraphElementCreator<EdgeDynamicObstacle>);
   factory->registerType("EDGE_VIA_POINT", new g2o::HyperGraphElementCreator<EdgeViaPoint>);
   factory->registerType("EDGE_PREFER_ROTDIR", new g2o::HyperGraphElementCreator<EdgePreferRotDir>);
+  factory->registerType("EDGE_2D_COSTMAP", new g2o::HyperGraphElementCreator<Edge2DCostmap>);
   return;
 }
 
@@ -320,6 +322,8 @@ bool TebOptimalPlanner::buildGraph(double weight_multiplier)
 
   if (cfg_->obstacles.include_dynamic_obstacles)
     AddEdgesDynamicObstacles();
+
+  AddEdges2DCostmap();
   
   AddEdgesViaPoints();
   
@@ -471,7 +475,7 @@ void TebOptimalPlanner::AddEdgesObstacles(double weight_multiplier)
               }
           }
       }   
-      
+
       // create obstacle edges
       if (left_obstacle)
       {
@@ -512,7 +516,7 @@ void TebOptimalPlanner::AddEdgesObstacles(double weight_multiplier)
                 optimizer_->addEdge(dist_bandpt_obst);
             }   
       }
-      
+
       for (const Obstacle* obst : relevant_obstacles)
       {
             if (inflated)
@@ -535,7 +539,6 @@ void TebOptimalPlanner::AddEdgesObstacles(double weight_multiplier)
   }  
         
 }
-
 
 void TebOptimalPlanner::AddEdgesObstaclesLegacy(double weight_multiplier)
 {
@@ -853,6 +856,26 @@ void TebOptimalPlanner::AddEdgesAcceleration()
 }
 
 
+void TebOptimalPlanner::AddEdges2DCostmap()
+{
+  if (cfg_->optim.weight_costmap == 0)
+    return;
+  
+  Eigen::Matrix<double,1,1> information;
+  information.fill(cfg_->optim.weight_costmap);
+  // iterate all teb points (skip first and last)
+  auto obstacles =
+      Edge2DCostmap::costmapToObstacles(costmap_);
+  for (int i = 0; i < teb_.sizePoses(); ++i)
+  {    
+      Edge2DCostmap* edge = new Edge2DCostmap;
+      edge->setVertex(0,teb_.PoseVertex(i));
+      edge->setInformation(information);
+      edge->setParameters(*cfg_);
+      edge->setObstacles(obstacles);
+      optimizer_->addEdge(edge);
+  }
+}
 
 void TebOptimalPlanner::AddEdgesTimeOptimal()
 {
@@ -970,7 +993,7 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     // TEST we use SumOfAllTimeDiffs() here, because edge cost depends on number of samples, which is not always the same for similar TEBs,
     // since we are using an AutoResize Function with hysteresis.
   }
-  
+
   // now we need pointers to all edges -> calculate error for each edge-type
   // since we aren't storing edge pointers, we need to check every edge
   for (std::vector<g2o::OptimizableGraph::Edge*>::const_iterator it = optimizer_->activeEdges().begin(); it!= optimizer_->activeEdges().end(); it++)
@@ -1036,6 +1059,13 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     if (edge_viapoint!=NULL)
     {
       cost_ += edge_viapoint->getError().squaredNorm() * viapoint_cost_scale;
+      continue;
+    }
+    
+    Edge2DCostmap* edge_2d_costmap = dynamic_cast<Edge2DCostmap*>(*it);
+    if (edge_2d_costmap!=NULL)
+    {
+      cost_ += edge_2d_costmap->getError()[0];
       continue;
     }
   }

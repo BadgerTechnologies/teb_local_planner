@@ -186,6 +186,7 @@ add_library(teb_local_planner
    src/teb_config.cpp
    src/homotopy_class_planner.cpp
    src/teb_local_planner_ros.cpp
+   src/edge_2d_costmap.cpp
    src/graph_search.cpp
 )
 
