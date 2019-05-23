@@ -195,7 +195,10 @@ bool HomotopyClassPlanner::hasEquivalenceClass(const EquivalenceClassPtr& eq_cla
 bool HomotopyClassPlanner::addEquivalenceClassIfNew(const EquivalenceClassPtr& eq_class, bool lock)
 {
   if (!eq_class)
+  {
+    ROS_WARN("HomotopyClassPlanner: !eq_class");
     return false;
+  }
 
   if (!eq_class->isValid())
   {
@@ -630,6 +633,7 @@ TebOptimalPlannerPtr HomotopyClassPlanner::selectBestTeb()
 
     best_teb_.reset(); // reset pointer
 
+    int n = 0;
     for (TebOptPlannerContainer::iterator it_teb = tebs_.begin(); it_teb != tebs_.end(); ++it_teb)
     {
         // check if the related TEB leaves the local costmap region
@@ -642,11 +646,20 @@ TebOptimalPlannerPtr HomotopyClassPlanner::selectBestTeb()
         double teb_cost;
 
         if (*it_teb == last_best_teb)
+        {
             teb_cost = min_cost_last_best; // skip already known cost value of the last best_teb
+            ROS_INFO_STREAM("Cost #" << n << "  " << teb_cost << "(last" << ((*it_teb == initial_plan_teb) ? ", init": "") << ")");
+        }
         else if (*it_teb == initial_plan_teb)
+        {
             teb_cost = min_cost_initial_plan_teb;
+            ROS_INFO_STREAM("Cost #" << n << "  " << teb_cost << "(init)");
+        }
         else
+        {
             teb_cost = it_teb->get()->getCurrentCost();
+            ROS_INFO_STREAM("Cost #" << n << "  " << teb_cost);
+        }
 
         if (teb_cost < min_cost)
         {
@@ -654,6 +667,7 @@ TebOptimalPlannerPtr HomotopyClassPlanner::selectBestTeb()
         best_teb_ = *it_teb;
         min_cost = teb_cost;
         }
+        ++n;
      }
 
 
