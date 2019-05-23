@@ -946,6 +946,7 @@ void TebOptimalPlanner::AddEdgesPreferRotDir()
 
 void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoint_cost_scale, bool alternative_time_cost)
 { 
+  ROS_ERROR("computeCurrentCost");
   // check if graph is empty/exist  -> important if function is called between buildGraph and optimizeGraph/clearGraph
   bool graph_exist_flag(false);
   if (optimizer_->edges().empty() && optimizer_->vertices().empty())
@@ -964,6 +965,7 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
   
   cost_ = 0;
 
+  int limit = 3;
   if (alternative_time_cost)
   {
     cost_ += teb_.getSumOfAllTimeDiffs();
@@ -979,34 +981,43 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     if (edge_time_optimal!=NULL && !alternative_time_cost)
     {
       cost_ += edge_time_optimal->getError().squaredNorm();
+      ROS_INFO_ONCE("EdgeTimeOptimal");
       continue;
     }
 
     EdgeKinematicsDiffDrive* edge_kinematics_dd = dynamic_cast<EdgeKinematicsDiffDrive*>(*it);
     if (edge_kinematics_dd!=NULL)
     {
-      cost_ += edge_kinematics_dd->getError().squaredNorm();
+      double old_cost = edge_kinematics_dd->getError().squaredNorm();
+      double new_cost = edge_kinematics_dd->chi2();
+      cost_ += new_cost;
+      if (limit-- > 0)
+        ROS_INFO_STREAM("Kinematics Edge old_cost: " << old_cost << " new_cost: " << new_cost);
+      ROS_INFO_ONCE("EdgeKinematicsDiffDrive");
       continue;
     }
     
     EdgeKinematicsCarlike* edge_kinematics_cl = dynamic_cast<EdgeKinematicsCarlike*>(*it);
     if (edge_kinematics_cl!=NULL)
     {
-      cost_ += edge_kinematics_cl->getError().squaredNorm();
+      
+      cost_ += edge_kinematics_cl->chi2(); // getError().squaredNorm();
       continue;
     }
     
     EdgeVelocity* edge_velocity = dynamic_cast<EdgeVelocity*>(*it);
     if (edge_velocity!=NULL)
     {
-      cost_ += edge_velocity->getError().squaredNorm();
+      cost_ += edge_velocity->chi2(); // getError().squaredNorm();
+      ROS_INFO_ONCE("EdgeVelocity");
       continue;
     }
     
     EdgeAcceleration* edge_acceleration = dynamic_cast<EdgeAcceleration*>(*it);
     if (edge_acceleration!=NULL)
     {
-      cost_ += edge_acceleration->getError().squaredNorm();
+      cost_ += edge_acceleration->chi2(); // getError().squaredNorm();
+      ROS_INFO_ONCE("EdgeAcceleration");
       continue;
     }
     
@@ -1014,6 +1025,7 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     if (edge_obstacle!=NULL)
     {
       cost_ += edge_obstacle->getError().squaredNorm() * obst_cost_scale;
+      ROS_INFO_ONCE("EdgeObstacle");
       continue;
     }
     
@@ -1022,6 +1034,7 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     {
       cost_ += std::sqrt(std::pow(edge_inflated_obstacle->getError()[0],2) * obst_cost_scale 
                + std::pow(edge_inflated_obstacle->getError()[1],2));
+      ROS_INFO_ONCE("EdgeInflatedObstacle");
       continue;
     }
     
@@ -1029,6 +1042,7 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     if (edge_dyn_obstacle!=NULL)
     {
       cost_ += edge_dyn_obstacle->getError().squaredNorm() * obst_cost_scale;
+      ROS_INFO_ONCE("EdgeDynamicObstacle");
       continue;
     }
     
@@ -1036,6 +1050,7 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     if (edge_viapoint!=NULL)
     {
       cost_ += edge_viapoint->getError().squaredNorm() * viapoint_cost_scale;
+      ROS_INFO_ONCE("EdgeViaPoint");
       continue;
     }
   }
