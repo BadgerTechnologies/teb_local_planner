@@ -474,6 +474,9 @@ public:
   int numTebsInClass(const EquivalenceClassPtr& eq_class);
 
   int numTebsInBestTebClass();
+
+  void pruneWorstTebs();
+
 protected:
 
   /** @name Explore new paths and keep only a single one for each homotopy class */

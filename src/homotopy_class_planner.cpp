@@ -342,6 +342,7 @@ void HomotopyClassPlanner::exploreEquivalenceClassesAndInitTebs(const PoseSE2& s
 {
   // first process old trajectories
   renewAndAnalyzeOldTebs(false);
+  pruneWorstTebs();
 
   // inject initial plan if available and not yet captured
   if (initial_plan_)
@@ -571,6 +572,36 @@ TebOptimalPlannerPtr HomotopyClassPlanner::getInitialPlanTEB()
         ROS_DEBUG("HomotopyClassPlanner::getInitialPlanTEB(): initial TEB not found in the set of available trajectories.");
 
     return TebOptimalPlannerPtr();
+}
+
+void HomotopyClassPlanner::pruneWorstTebs()
+{
+  double worst_cost = 0.0;
+  auto it_worst_teb = tebs_.end();
+  auto it_worst_teb_eqrel = equivalence_classes_.end();
+
+  auto it_eqrel = equivalence_classes_.begin();
+  auto it_teb = tebs_.begin();
+  for (; it_teb != tebs_.end() && it_eqrel != equivalence_classes_.end();
+       ++it_teb, ++it_eqrel)
+  {
+    if (it_teb->get() == best_teb_.get())  // Always preserve the "best" teb
+      continue;
+    if (best_teb_eq_class_->isEqual(*it_eqrel->first))
+    {
+      if (worst_cost < (*it_teb)->getCurrentCost())
+      {
+        worst_cost = (*it_teb)->getCurrentCost();
+        it_worst_teb = it_teb;
+        it_worst_teb_eqrel = it_eqrel;
+      }
+    }
+  }
+  if (it_worst_teb != tebs_.end())
+  {
+    tebs_.erase(it_worst_teb);
+    equivalence_classes_.erase(it_worst_teb_eqrel);
+  }
 }
 
 TebOptimalPlannerPtr HomotopyClassPlanner::selectBestTeb()
