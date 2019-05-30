@@ -68,6 +68,9 @@ void HomotopyClassPlanner::initialize(const TebConfig& cfg, ObstContainer* obsta
   else
     graph_search_ = boost::shared_ptr<GraphSearchInterface>(new ProbRoadmapGraph(*cfg_, this));
 
+  std::random_device rd;
+  random_.seed(rd());
+
   initialized_ = true;
 
   setVisualization(visual);
@@ -345,7 +348,7 @@ void HomotopyClassPlanner::exploreEquivalenceClassesAndInitTebs(const PoseSE2& s
 {
   // first process old trajectories
   renewAndAnalyzeOldTebs(false);
-  pruneWorstTebs();
+  pruneTebs();
 
   // inject initial plan if available and not yet captured
   if (initial_plan_)
@@ -577,33 +580,24 @@ TebOptimalPlannerPtr HomotopyClassPlanner::getInitialPlanTEB()
     return TebOptimalPlannerPtr();
 }
 
-void HomotopyClassPlanner::pruneWorstTebs()
+void HomotopyClassPlanner::pruneTebs()
 {
-  double worst_cost = 0.0;
-  auto it_worst_teb = tebs_.end();
-  auto it_worst_teb_eqrel = equivalence_classes_.end();
-
+  // interate both vectors in parallel
   auto it_eqrel = equivalence_classes_.begin();
   auto it_teb = tebs_.begin();
-  for (; it_teb != tebs_.end() && it_eqrel != equivalence_classes_.end();
-       ++it_teb, ++it_eqrel)
+  while (it_teb != tebs_.end() && it_eqrel != equivalence_classes_.end())
   {
-    if (it_teb->get() == best_teb_.get())  // Always preserve the "best" teb
-      continue;
-    if (best_teb_eq_class_->isEqual(*it_eqrel->first))
+    if (it_teb->get() != best_teb_.get()  // Always preserve the "best" teb
+        && (random_() <= cfg_->hcp.selection_pruning_probability * random_.max()))
     {
-      if (worst_cost < (*it_teb)->getCurrentCost())
-      {
-        worst_cost = (*it_teb)->getCurrentCost();
-        it_worst_teb = it_teb;
-        it_worst_teb_eqrel = it_eqrel;
-      }
+      it_teb = tebs_.erase(it_teb);
+      it_eqrel = equivalence_classes_.erase(it_eqrel);
     }
-  }
-  if (it_worst_teb != tebs_.end())
-  {
-    tebs_.erase(it_worst_teb);
-    equivalence_classes_.erase(it_worst_teb_eqrel);
+    else
+    {
+      ++it_teb;
+      ++it_eqrel;
+    }
   }
 }
 
