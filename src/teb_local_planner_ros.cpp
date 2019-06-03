@@ -37,6 +37,7 @@
  *********************************************************************/
 
 #include <teb_local_planner/teb_local_planner_ros.h>
+#include <std_msgs/Int64.h>
 
 #include <tf_conversions/tf_eigen.h>
 
@@ -45,6 +46,7 @@
 // pluginlib macros
 #include <pluginlib/class_list_macros.h>
 
+#include "angles/angles.h"
 #include "g2o/core/sparse_optimizer.h"
 #include "g2o/core/block_solver.h"
 #include "g2o/core/factory.h"
@@ -59,7 +61,16 @@ PLUGINLIB_EXPORT_CLASS(teb_local_planner::TebLocalPlannerROS, nav_core::BaseLoca
 
 namespace teb_local_planner
 {
-  
+
+static int hcc_interval = 4;
+static int hcc_count = -1;
+ros::Subscriber hcc_interval_sub;
+ros::Publisher debug_control_pose_pub;
+
+void hcc_interval_cb(const std_msgs::Int64::ConstPtr& msg)
+{
+  hcc_interval = msg->data;
+}
 
 TebLocalPlannerROS::TebLocalPlannerROS() : costmap_ros_(NULL), tf_(NULL), costmap_model_(NULL),
                                            costmap_converter_loader_("costmap_converter", "costmap_converter::BaseCostmapToPolygons"),
@@ -170,6 +181,9 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     // setup callback for custom via-points
     via_points_sub_ = nh.subscribe("via_points", 1, &TebLocalPlannerROS::customViaPointsCB, this);
     
+    hcc_interval_sub = nh.subscribe("interval", 1, &hcc_interval_cb);
+    debug_control_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_control_pose", 1);
+
     // initialize failure detector
     ros::NodeHandle nh_move_base("~");
     double controller_frequency = 5;
@@ -198,6 +212,7 @@ bool TebLocalPlannerROS::setPlan(const std::vector<geometry_msgs::PoseStamped>& 
     return false;
   }
 
+  hcc_count = -1;
   // store the global plan
   global_plan_.clear();
   global_plan_ = orig_global_plan;
@@ -211,6 +226,19 @@ bool TebLocalPlannerROS::setPlan(const std::vector<geometry_msgs::PoseStamped>& 
   return true;
 }
 
+PoseSE2 slerp_pose(PoseSE2& p1, PoseSE2& p2, double fraction)
+{
+  double dt = 1.0;
+  PoseSE2 new_pos;
+  Eigen::Vector2d deltaS = p2.position() - p1.position();
+  double vx = deltaS.norm() / dt;
+  double omega = angles::normalize_angle(p2.theta() - p1.theta());
+
+  new_pos.x() = p1.x() + (vx * cos(p1.theta())) * dt * fraction;
+  new_pos.y() = p1.y() + (vx * sin(p1.theta())) * dt * fraction;
+  new_pos.theta() = p1.theta() + omega * dt * fraction;
+  return new_pos;
+}
 
 bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 {
@@ -238,6 +266,10 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   robot_vel_.linear.y = robot_vel_tf.getOrigin().getY();
   robot_vel_.angular.z = tf::getYaw(robot_vel_tf.getRotation());
   
+  bool do_plan = false;
+  if (++hcc_count % hcc_interval == 0)
+  {
+  do_plan = true;
   // prune global plan to cut off parts of the past (spatially before the robot)
   pruneGlobalPlan(*tf_, robot_pose, global_plan_, cfg_.trajectory.global_plan_prune_distance);
 
@@ -375,26 +407,59 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     last_cmd_ = cmd_vel0;
     return false;
   }
+  }
 
   {
     // Get robot pose
-    tf::Stamped<tf::Pose> robot_pose;
-    costmap_ros_->getRobotPose(robot_pose);
-    PoseSE2 pose1(robot_pose);
+    tf::Stamped<tf::Pose> robot_pose_tf;
+    costmap_ros_->getRobotPose(robot_pose_tf);
+    PoseSE2 robot_pose(robot_pose_tf);
 
+    PoseSE2& pose1 = planner_->getTeb().Pose(0);
     PoseSE2& pose2 = planner_->getTeb().Pose(1);
+    PoseSE2 target_pose;
     double vx, omega;
     double dt = planner_->getTeb().TimeDiff(0);
 
-    Eigen::Vector2d deltaS = pose2.position() - pose1.position();
+    if (planner_->getTeb().poses().size() >= 3)
+    {
+      PoseSE2& pose3 = planner_->getTeb().Pose(2);
+      double fraction = static_cast<double>(hcc_count % hcc_interval) / hcc_interval;
+      target_pose = slerp_pose(pose2, pose3, fraction);
+      dt += planner_->getTeb().TimeDiff(1) * fraction;
 
-    Eigen::Vector2d conf1dir( cos(pose1.theta()), sin(pose1.theta()) );
+      // Just debug visualization:
+      geometry_msgs::PoseStamped debug_pose;
+      debug_pose.header.stamp = ros::Time::now();
+      debug_pose.header.frame_id = "odom";
+      target_pose.toPoseMsg(debug_pose.pose);
+      debug_control_pose_pub.publish(debug_pose);
+    }
+    else
+    {
+      target_pose = pose2;
+    }
+
+    Eigen::Vector2d deltaS = target_pose.position() - robot_pose.position();
+    double percent_to_target_x = deltaS.norm() / (target_pose.position() - pose1.position()).norm();
+    double dth_robot_to_target = target_pose.theta() - robot_pose.theta();
+    double dth_pose1_to_robot = robot_pose.theta() - pose1.theta();
+    double percent_to_target_th = percent_to_target_x;
+    if (fabs(dth_pose1_to_robot) > 1e3)
+    {
+      percent_to_target_th = dth_robot_to_target / dth_pose1_to_robot;
+    }
+    double percent_to_target = (percent_to_target_x + percent_to_target_th) / 2.0;
+    dt *= percent_to_target;
+
+
+    Eigen::Vector2d conf1dir( cos(robot_pose.theta()), sin(robot_pose.theta()) );
     // translational velocity
     double dir = deltaS.dot(conf1dir);
     vx = (double) g2o::sign(dir) * deltaS.norm()/dt;
 
     // rotational velocity
-    double orientdiff = g2o::normalize_theta(pose2.theta() - pose1.theta());
+    double orientdiff = g2o::normalize_theta(target_pose.theta() - robot_pose.theta());
     omega = 1 * orientdiff/dt;
 
     cmd_vel.linear.x = vx;
@@ -431,7 +496,8 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   last_cmd_ = cmd_vel;
   
   // Now visualize everything    
-  visualize(visualization_);
+  if (do_plan)
+    visualize(visualization_);
   return true;
 }
 
@@ -1194,5 +1260,3 @@ double TebLocalPlannerROS::getNumberFromXMLRPC(XmlRpc::XmlRpcValue& value, const
 }
 
 } // end namespace teb_local_planner
-
-
