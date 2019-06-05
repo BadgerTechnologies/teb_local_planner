@@ -347,7 +347,13 @@ protected:
   void configureBackupModes(std::vector<geometry_msgs::PoseStamped>& transformed_plan,  int& goal_idx);
 
   void visualize(TebVisualizationPtr visualization);
-  
+
+  PoseSE2 interpolatePath(double seconds);
+
+  void visualizeInterpolatedPath(double start_time, double end_time, double dt);
+
+  double findRobotTimeInPlan(const PoseSE2& robot_pose, double start_time, double end_time, double dt);
+
 private:
   // Definition of member variables
 

@@ -36,8 +36,10 @@
  * Author: Christoph Rösmann
  *********************************************************************/
 
+#include <limits>
 #include <teb_local_planner/teb_local_planner_ros.h>
 #include <std_msgs/Int64.h>
+#include <std_msgs/Float64.h>
 
 #include <tf_conversions/tf_eigen.h>
 
@@ -54,6 +56,7 @@
 #include "g2o/core/optimization_algorithm_levenberg.h"
 #include "g2o/solvers/csparse/linear_solver_csparse.h"
 #include "g2o/solvers/cholmod/linear_solver_cholmod.h"
+#include "ros/time.h"
 
 
 // register this planner as a BaseLocalPlanner plugin
@@ -64,12 +67,29 @@ namespace teb_local_planner
 
 static int hcc_interval = 4;
 static int hcc_count = -1;
+static double hcc_dt = 0.2;
+static double hcc_orient_thresh = 0.01;
 ros::Subscriber hcc_interval_sub;
+ros::Subscriber hcc_dt_sub;
+ros::Subscriber hcc_orient_thresh_sub;
 ros::Publisher debug_control_pose_pub;
+ros::Publisher debug_interpolated_path_pub;
+double control_interval;
+ros::Time time_last_good_plan;
 
 void hcc_interval_cb(const std_msgs::Int64::ConstPtr& msg)
 {
   hcc_interval = msg->data;
+}
+
+void hcc_dt_cb(const std_msgs::Float64::ConstPtr& msg)
+{
+  hcc_dt = msg->data;
+}
+
+void hcc_orient_thresh_cb(const std_msgs::Float64::ConstPtr& msg)
+{
+  hcc_orient_thresh = msg->data;
 }
 
 TebLocalPlannerROS::TebLocalPlannerROS() : costmap_ros_(NULL), tf_(NULL), costmap_model_(NULL),
@@ -182,7 +202,10 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     via_points_sub_ = nh.subscribe("via_points", 1, &TebLocalPlannerROS::customViaPointsCB, this);
     
     hcc_interval_sub = nh.subscribe("interval", 1, &hcc_interval_cb);
+    hcc_dt_sub = nh.subscribe("dt", 1, &hcc_dt_cb);
+    hcc_orient_thresh_sub = nh.subscribe("orient_thresh", 1, &hcc_orient_thresh_cb);
     debug_control_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_control_pose", 1);
+    debug_interpolated_path_pub = nh.advertise<geometry_msgs::PoseArray>("debug_interpolated_path", 1);
 
     // initialize failure detector
     ros::NodeHandle nh_move_base("~");
@@ -213,6 +236,12 @@ bool TebLocalPlannerROS::setPlan(const std::vector<geometry_msgs::PoseStamped>& 
   }
 
   hcc_count = -1;
+  ros::NodeHandle nh_move_base("~");
+  double controller_frequency;
+  nh_move_base.param("controller_frequency", controller_frequency);
+  controller_frequency = std::min(controller_frequency, 0.0001);  // Avoid div by zero or negative nonsense
+  control_interval = 1.0 / controller_frequency;
+
   // store the global plan
   global_plan_.clear();
   global_plan_ = orig_global_plan;
@@ -226,7 +255,7 @@ bool TebLocalPlannerROS::setPlan(const std::vector<geometry_msgs::PoseStamped>& 
   return true;
 }
 
-PoseSE2 slerp_pose(PoseSE2& p1, PoseSE2& p2, double fraction)
+PoseSE2 slerp_linear(PoseSE2& p1, PoseSE2& p2, double fraction)
 {
   double dt = 1.0;
   PoseSE2 new_pos;
@@ -238,6 +267,105 @@ PoseSE2 slerp_pose(PoseSE2& p1, PoseSE2& p2, double fraction)
   new_pos.y() = p1.y() + (vx * sin(p1.theta())) * dt * fraction;
   new_pos.theta() = p1.theta() + omega * dt * fraction;
   return new_pos;
+}
+
+PoseSE2 slerp_arc(PoseSE2& p1, PoseSE2& p2, double bearing, double fraction)
+{
+  Eigen::Vector2d pos1 = p1.position();
+  Eigen::Vector2d pos2 = p2.position();
+  double distance = (pos2 - pos1).norm();
+  double radius = distance / (2 * sin(bearing));
+  double angle = angles::normalize_angle(2 * bearing) * fraction;
+  PoseSE2 result;
+  Eigen::Vector2d center = pos1 + radius * Eigen::Vector2d(-sin(p1.theta()), cos(p1.theta()));
+  Eigen::Affine2d rot_affine = Eigen::Affine2d::Identity();
+  rot_affine.rotate(angle);
+  Eigen::Matrix2d rot_matrix = rot_affine.matrix().block(0, 0, 2, 2);
+  result.position() = rot_matrix * (pos1 - center) + center;
+  result.theta() = p1.theta() + angle;
+  //ROS_INFO_STREAM(" p1=" <<  p1 << " p2=" << p2 << " bearing=" << bearing << " fraction=" << fraction
+  //                << " anglepre=" << angle_prenorm << " angle=" << angle << " rot_matrix=" << rot_matrix << " radius=" << radius << " center=" << center);
+  return result;
+}
+
+PoseSE2 slerp_pose(PoseSE2& p1, PoseSE2& p2, double fraction)
+{
+  Eigen::Vector2d displacement = p2.position() - p1.position();
+  //double bearing = angles::normalize_angle(atan2(displacement[1], displacement[0]) - p1.theta());
+  double bearing = angles::normalize_angle(atan2(displacement[1], displacement[0]) - p1.theta());
+  if (fabs(bearing) < 1e-4)
+  {
+    return slerp_linear(p1, p2, fraction);
+  }
+  else
+  {
+    return slerp_arc(p1, p2, bearing, fraction);
+  }
+}
+
+//PoseSE2 TebLocalPlannerROS::interpolatePath(double seconds)
+//{
+//  return slerp_pose(planner_->getTeb().Pose(0), planner_->getTeb().Pose(1), seconds);
+//}
+
+PoseSE2 TebLocalPlannerROS::interpolatePath(double seconds)
+{
+  double cumulative_time = 0.0;
+  double cur_time_diff;
+  int i;
+
+  for (i = 0; i < planner_->getTeb().sizeTimeDiffs(); ++i)
+  {
+    cur_time_diff = planner_->getTeb().TimeDiff(i);
+    if (cumulative_time <= seconds && seconds < cumulative_time + cur_time_diff)
+    {
+      break;
+    }
+    cumulative_time += cur_time_diff;
+  }
+  if (i < planner_->getTeb().sizeTimeDiffs())
+  {
+    double fraction = (seconds - cumulative_time) / cur_time_diff;
+    return slerp_pose(planner_->getTeb().Pose(i), planner_->getTeb().Pose(i+1), fraction);
+  }
+  else
+  {
+    return planner_->getTeb().BackPose();
+  }
+}
+
+void TebLocalPlannerROS::visualizeInterpolatedPath(double start_time, double end_time, double dt)
+{
+  geometry_msgs::PoseArray msg;
+  msg.header.stamp = ros::Time::now();
+  msg.header.frame_id = "odom";
+
+  for (double t = start_time; t <= end_time; t += dt)
+  {
+    PoseSE2 cur_pose = interpolatePath(t);
+    geometry_msgs::Pose pose_msg;
+    cur_pose.toPoseMsg(pose_msg);
+    msg.poses.push_back(pose_msg);
+  }
+  debug_interpolated_path_pub.publish(msg);
+}
+
+double TebLocalPlannerROS::findRobotTimeInPlan(const PoseSE2& robot_pose, double start_time, double end_time, double dt)
+{
+  double min_dist = std::numeric_limits<double>::max();
+  double time_with_min_dist;
+
+  for (double t = start_time; t <= end_time; t += dt)
+  {
+    PoseSE2 cur_pose = interpolatePath(t);
+    double cur_dist = (robot_pose.position() - cur_pose.position()).norm();
+    if (min_dist > cur_dist)
+    {
+      min_dist = cur_dist;
+      time_with_min_dist = t;
+    }
+  }
+  return time_with_min_dist;
 }
 
 bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
@@ -266,10 +394,9 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   robot_vel_.linear.y = robot_vel_tf.getOrigin().getY();
   robot_vel_.angular.z = tf::getYaw(robot_vel_tf.getRotation());
   
-  bool do_plan = false;
-  if (++hcc_count % hcc_interval == 0)
+  int sub_iteration = (++hcc_count % hcc_interval);
+  if (sub_iteration == 0)
   {
-  do_plan = true;
   // prune global plan to cut off parts of the past (spatially before the robot)
   pruneGlobalPlan(*tf_, robot_pose, global_plan_, cfg_.trajectory.global_plan_prune_distance);
 
@@ -395,6 +522,8 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     return false;
   }
 
+  time_last_good_plan = ros::Time::now();
+
   geometry_msgs::Twist cmd_vel0;
   // Get the velocity command for this sampling interval
   if (!planner_->getVelocityCommand(cmd_vel0.linear.x, cmd_vel0.linear.y, cmd_vel0.angular.z, cfg_.trajectory.control_look_ahead_poses))
@@ -409,6 +538,8 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   }
   }
 
+  double vx, omega;
+  double bearing_norm;
   {
     // Get robot pose
     tf::Stamped<tf::Pose> robot_pose_tf;
@@ -417,50 +548,55 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 
     PoseSE2& pose1 = planner_->getTeb().Pose(0);
     PoseSE2& pose2 = planner_->getTeb().Pose(1);
-    PoseSE2 target_pose;
-    double vx, omega;
-    double dt = planner_->getTeb().TimeDiff(0);
+    double dt = hcc_dt;
+    // double plan_time = (ros::Time::now() - time_last_good_plan).toSec() + dt;
+    double robot_time = findRobotTimeInPlan(robot_pose, 0.0, 6.0, 0.01);
+    double plan_time = robot_time + dt;
+    ROS_INFO_STREAM("t = " << (plan_time));
+    // PoseSE2 target_pose = interpolatePath(sub_iteration * control_interval + dt);
+    PoseSE2 target_pose = interpolatePath(plan_time);
 
-    if (planner_->getTeb().poses().size() >= 3)
     {
-      PoseSE2& pose3 = planner_->getTeb().Pose(2);
-      double fraction = static_cast<double>(hcc_count % hcc_interval) / hcc_interval;
-      target_pose = slerp_pose(pose2, pose3, fraction);
-      dt += planner_->getTeb().TimeDiff(1) * fraction;
-
       // Just debug visualization:
       geometry_msgs::PoseStamped debug_pose;
       debug_pose.header.stamp = ros::Time::now();
       debug_pose.header.frame_id = "odom";
       target_pose.toPoseMsg(debug_pose.pose);
       debug_control_pose_pub.publish(debug_pose);
-    }
-    else
-    {
-      target_pose = pose2;
+      visualizeInterpolatedPath(0.0, 6.0, 0.01);
     }
 
     Eigen::Vector2d deltaS = target_pose.position() - robot_pose.position();
-    double percent_to_target_x = deltaS.norm() / (target_pose.position() - pose1.position()).norm();
-    double dth_robot_to_target = target_pose.theta() - robot_pose.theta();
-    double dth_pose1_to_robot = robot_pose.theta() - pose1.theta();
-    double percent_to_target_th = percent_to_target_x;
-    if (fabs(dth_pose1_to_robot) > 1e3)
-    {
-      percent_to_target_th = dth_robot_to_target / dth_pose1_to_robot;
-    }
-    double percent_to_target = (percent_to_target_x + percent_to_target_th) / 2.0;
-    dt *= percent_to_target;
+    // double percent_to_target_x = deltaS.norm() / (target_pose.position() - pose1.position()).norm();
+    // double dth_robot_to_target = target_pose.theta() - robot_pose.theta();
+    // double dth_pose1_to_robot = robot_pose.theta() - pose1.theta();
+    // double percent_to_target_th = percent_to_target_x;
+    // if (fabs(dth_pose1_to_robot) > 1e3)
+    // {
+    //   percent_to_target_th = dth_robot_to_target / dth_pose1_to_robot;
+    // }
+    // double percent_to_target = (percent_to_target_x + percent_to_target_th) / 2.0;
+    // dt *= percent_to_target;
 
 
     Eigen::Vector2d conf1dir( cos(robot_pose.theta()), sin(robot_pose.theta()) );
     // translational velocity
     double dir = deltaS.dot(conf1dir);
-    vx = (double) g2o::sign(dir) * deltaS.norm()/dt;
+    double bearing = (atan2(deltaS[1], deltaS[0]) - robot_pose.theta());
+    vx = (double) g2o::sign(dir) * deltaS.norm() * cos(bearing)/dt;
 
     // rotational velocity
     double orientdiff = g2o::normalize_theta(target_pose.theta() - robot_pose.theta());
     omega = 1 * orientdiff/dt;
+    if (deltaS.norm() > hcc_orient_thresh)
+    {
+      if (vx < 0)
+      {
+        bearing += M_PI;
+      }
+      bearing_norm = angles::normalize_angle(bearing);
+      omega = bearing_norm/dt;
+    }
 
     cmd_vel.linear.x = vx;
     cmd_vel.angular.z = omega;
@@ -469,6 +605,9 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   // Saturate velocity, if the optimization results violates the constraints (could be possible due to soft constraints).
   saturateVelocity(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.robot.max_vel_x, cfg_.robot.max_vel_y,
                    cfg_.robot.max_vel_theta, cfg_.robot.max_vel_x_backwards);
+
+  ROS_INFO_STREAM(" bearing_norm=" << bearing_norm << " vx=" << vx << " omega=" << omega
+                  << " vx2=" << cmd_vel.linear.x << " omega2=" << cmd_vel.angular.z);
 
   // convert rot-vel to steering angle if desired (carlike robot).
   // The min_turning_radius is allowed to be slighly smaller since it is a soft-constraint
@@ -496,7 +635,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   last_cmd_ = cmd_vel;
   
   // Now visualize everything    
-  if (do_plan)
+  if (sub_iteration == 0)
     visualize(visualization_);
   return true;
 }
@@ -935,6 +1074,8 @@ double TebLocalPlannerROS::estimateLocalGoalOrientation(const std::vector<geomet
       
 void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega, double max_vel_x, double max_vel_y, double max_vel_theta, double max_vel_x_backwards) const
 {
+  double orig_vx = vx;
+
   // Limit translational velocity for forward driving
   if (vx > max_vel_x)
     vx = max_vel_x;
@@ -945,12 +1086,6 @@ void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega,
   else if (vy < -max_vel_y)
     vy = -max_vel_y;
   
-  // Limit angular velocity
-  if (omega > max_vel_theta)
-    omega = max_vel_theta;
-  else if (omega < -max_vel_theta)
-    omega = -max_vel_theta;
-  
   // Limit backwards velocity
   if (max_vel_x_backwards<=0)
   {
@@ -958,6 +1093,20 @@ void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega,
   }
   else if (vx < -max_vel_x_backwards)
     vx = -max_vel_x_backwards;
+
+  if (fabs(orig_vx) > 1e-3)  // Avoid div by near-zero
+    omega *= vx / orig_vx;
+  double orig_omega = omega;
+
+  // Limit angular velocity
+  if (omega > max_vel_theta)
+    omega = max_vel_theta;
+  else if (omega < -max_vel_theta)
+    omega = -max_vel_theta;
+
+  if (fabs(orig_omega) > 1e-3)  // Avoid div by near-zero
+    vx *= omega / orig_omega;
+  ROS_INFO_STREAM("vx_ratio=" << (vx/orig_vx) << " omega_ratio=" << (omega/orig_omega));
 }
      
      
