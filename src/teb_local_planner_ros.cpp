@@ -538,7 +538,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   }
   }
 
-  double vx, omega;
+  double vx, omega, omega1, omega2;
   double bearing_norm;
   {
     // Get robot pose
@@ -582,21 +582,24 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     Eigen::Vector2d conf1dir( cos(robot_pose.theta()), sin(robot_pose.theta()) );
     // translational velocity
     double dir = deltaS.dot(conf1dir);
-    double bearing = (atan2(deltaS[1], deltaS[0]) - robot_pose.theta());
-    vx = (double) g2o::sign(dir) * deltaS.norm() * cos(bearing)/dt;
+    double bearing_robot_from_target = (atan2(-deltaS[1], -deltaS[0]) - target_pose.theta());
+    vx = (double) g2o::sign(dir) * deltaS.norm() * cos(bearing_robot_from_target)/dt;
 
     // rotational velocity
     double orientdiff = g2o::normalize_theta(target_pose.theta() - robot_pose.theta());
-    omega = 1 * orientdiff/dt;
-    if (deltaS.norm() > hcc_orient_thresh)
+    omega1 = 1 * orientdiff/dt;
+    //if (deltaS.norm() > hcc_orient_thresh)
     {
+      double bearing = (atan2(deltaS[1], deltaS[0]) - robot_pose.theta());
       if (vx < 0)
       {
         bearing += M_PI;
       }
       bearing_norm = angles::normalize_angle(bearing);
-      omega = bearing_norm/dt;
+      omega2 = bearing_norm/dt;
     }
+    double weight = fabs(cos(bearing_robot_from_target));
+    omega = weight * omega2 + (1.0 - weight) * omega1;
 
     cmd_vel.linear.x = vx;
     cmd_vel.angular.z = omega;
