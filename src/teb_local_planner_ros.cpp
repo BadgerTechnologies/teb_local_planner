@@ -40,6 +40,7 @@
 #include <teb_local_planner/teb_local_planner_ros.h>
 #include <std_msgs/Int64.h>
 #include <std_msgs/Float64.h>
+#include <std_srvs/Empty.h>
 
 #include <tf_conversions/tf_eigen.h>
 
@@ -74,6 +75,7 @@ ros::Subscriber hcc_dt_sub;
 ros::Subscriber hcc_orient_thresh_sub;
 ros::Publisher debug_control_pose_pub;
 ros::Publisher debug_interpolated_path_pub;
+ros::ServiceServer debug_plan_now_svc;
 double control_interval;
 ros::Time time_last_good_plan;
 
@@ -90,6 +92,12 @@ void hcc_dt_cb(const std_msgs::Float64::ConstPtr& msg)
 void hcc_orient_thresh_cb(const std_msgs::Float64::ConstPtr& msg)
 {
   hcc_orient_thresh = msg->data;
+}
+
+bool hcc_plan_now_cb(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
+{
+  hcc_count = -1;
+  return true;
 }
 
 TebLocalPlannerROS::TebLocalPlannerROS() : costmap_ros_(NULL), tf_(NULL), costmap_model_(NULL),
@@ -206,6 +214,7 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     hcc_orient_thresh_sub = nh.subscribe("orient_thresh", 1, &hcc_orient_thresh_cb);
     debug_control_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_control_pose", 1);
     debug_interpolated_path_pub = nh.advertise<geometry_msgs::PoseArray>("debug_interpolated_path", 1);
+    debug_plan_now_svc = nh.advertiseService("plan_now", &hcc_plan_now_cb);
 
     // initialize failure detector
     ros::NodeHandle nh_move_base("~");
