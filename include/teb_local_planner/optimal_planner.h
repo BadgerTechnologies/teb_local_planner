@@ -501,6 +501,11 @@ public:
   
   virtual TimedElasticBand* getTeb() { return &teb_; }
 
+  /**
+   * @brief Enable using Costmap3DQuery distance queries in place of obstacles.
+   */
+  virtual void useCostmap3DQuery(costmap_3d::Costmap3DQueryPtr costmap_3d_query) {costmap_3d_query_ = costmap_3d_query;}
+
   //@}
   
 protected:
@@ -611,6 +616,11 @@ protected:
   void AddEdgesObstaclesLegacy(double weight_multiplier=1.0);
   
   /**
+   * @brief Add edges to query the costmap 3D directly.
+   */
+  void AddEdges3DCostmap(double weight_multiplier=1.0);
+
+  /**
    * @brief Add all edges (local cost functions) related to minimizing the distance to via-points
    * @see EdgeViaPoint
    * @see buildGraph
@@ -682,6 +692,7 @@ protected:
   RotType prefer_rotdir_; //!< Store whether to prefer a specific initial rotation in optimization (might be activated in case the robot oscillates)
   
   // internal objects (memory management owned)
+  costmap_3d::Costmap3DQueryPtr costmap_3d_query_;
   TebVisualizationPtr visualization_; //!< Instance of the visualization class
   TimedElasticBand teb_; //!< Actual trajectory object
   RobotFootprintModelPtr robot_model_; //!< Robot model
