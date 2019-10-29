@@ -29,6 +29,7 @@
   
   <depend>base_local_planner</depend>
   <depend>costmap_2d</depend>
+  <depend>costmap_3d</depend>
   <depend>costmap_converter</depend>
 
   <depend>dynamic_reconfigure</depend>

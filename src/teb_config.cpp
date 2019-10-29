@@ -80,6 +80,7 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("wheelbase", robot.wheelbase, robot.wheelbase);
   nh.param("cmd_angle_instead_rotvel", robot.cmd_angle_instead_rotvel, robot.cmd_angle_instead_rotvel);
   nh.param("is_footprint_dynamic", robot.is_footprint_dynamic, robot.is_footprint_dynamic);
+  nh.param("use_costmap_3d", robot.use_costmap_3d, robot.use_costmap_3d);
 
   // Control Law
   nh.param("carrot_dt", control.carrot_dt, control.carrot_dt);
