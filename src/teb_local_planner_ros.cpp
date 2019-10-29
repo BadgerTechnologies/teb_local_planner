@@ -126,6 +126,23 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     cfg_.map_frame = global_frame_; // TODO
     robot_base_frame_ = costmap_ros_->getBaseFrameID();
 
+    if (cfg_.obstacles.use_costmap_3d)
+    {
+      costmap_3d_ros_ = dynamic_cast<costmap_3d::Costmap3DROS*>(costmap_ros_);
+    }
+    else
+    {
+      costmap_3d_ros_ = nullptr;
+    }
+    if (costmap_3d_ros_ != nullptr)
+    {
+      ROS_INFO("Using Costmap3DROS");
+      // Override the costmap model with a Costmap3DModel
+      costmap_model_ = boost::make_shared<base_local_planner::Costmap3DModel>(*costmap_3d_ros_);
+      // Tell the planner to use a 3D costmap query that tracks the current costmap for obstacles
+      planner_->useCostmap3DQuery(costmap_3d_ros_->getAssociatedQuery());
+    }
+
     //Initialize a costmap to polygon converter
     if (!cfg_.obstacles.costmap_converter_plugin.empty())
     {
