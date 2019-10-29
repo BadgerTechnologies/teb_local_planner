@@ -8,6 +8,7 @@ set(CMAKE_BUILD_TYPE Release) #None, Debug, Release, RelWithDebInfo, MinSizeRel
 find_package(catkin REQUIRED COMPONENTS
   base_local_planner
   costmap_2d
+  costmap_3d
   costmap_converter
   cmake_modules
   dynamic_reconfigure
@@ -146,6 +147,7 @@ catkin_package(
   CATKIN_DEPENDS
 	base_local_planner
 	costmap_2d
+	costmap_3d
 	costmap_converter
 	dynamic_reconfigure
 	geometry_msgs
@@ -186,6 +188,7 @@ add_library(teb_local_planner
    src/teb_config.cpp
    src/homotopy_class_planner.cpp
    src/teb_local_planner_ros.cpp
+   src/edge_3d_costmap.cpp
    src/graph_search.cpp
 )
 

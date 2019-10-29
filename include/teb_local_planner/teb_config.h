@@ -98,6 +98,7 @@ public:
     double wheelbase; //!< The distance between the drive shaft and steering axle (only required for a carlike robot with 'cmd_angle_instead_rotvel' enabled); The value might be negative for back-wheeled robots!
     bool cmd_angle_instead_rotvel; //!< Substitute the rotational velocity in the commanded velocity message by the corresponding steering angle (check 'axles_distance')
     bool is_footprint_dynamic; //<! If true, updated the footprint before checking trajectory feasibility
+    bool use_costmap_3d; //<! If true, attempt to use the Costmap3DROS for obstacle distance and feasibility checks (if the costmap in use is not dynamic-castable to a Costmap3DROS, does nothing)
   } robot; //!< Robot related parameters
   
   //! Goal tolerance related parameters
@@ -157,6 +158,11 @@ public:
     
     double weight_adapt_factor; //!< Some special weights (currently 'weight_obstacle') are repeatedly scaled by this factor in each outer TEB iteration (weight_new = weight_old*factor); Increasing weights iteratively instead of setting a huge value a-priori leads to better numerical conditions of the underlying optimization problem.
     double obstacle_cost_exponent; //!< Exponent for nonlinear obstacle cost (cost = linear_cost * obstacle_cost_exponent). Set to 1 to disable nonlinear cost (default)
+    double weight_costmap_3d;
+    double weight_costmap_3d_exponential;
+    double weight_costmap_3d_exponential_shift;
+    double weight_costmap_3d_linear;
+    double weight_costmap_3d_linear_slope;
   } optim; //!< Optimization related parameters
   
   
@@ -248,6 +254,7 @@ public:
     robot.wheelbase = 1.0;
     robot.cmd_angle_instead_rotvel = false;
     robot.is_footprint_dynamic = false;
+    robot.use_costmap_3d = false;
     
     // GoalTolerance
     

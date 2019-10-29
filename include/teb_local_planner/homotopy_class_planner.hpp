@@ -66,6 +66,9 @@ template<typename BidirIter, typename Fun>
 TebOptimalPlannerPtr HomotopyClassPlanner::addAndInitNewTeb(BidirIter path_start, BidirIter path_end, Fun fun_position, double start_orientation, double goal_orientation, const geometry_msgs::Twist* start_velocity)
 {
   TebOptimalPlannerPtr candidate = TebOptimalPlannerPtr( new TebOptimalPlanner(*cfg_, obstacles_, robot_model_));
+  if (costmap_3d_query_ != nullptr)
+    // use a copy of the query, as queries are not thread safe
+    candidate->useCostmap3DQuery(costmap_3d::Costmap3DQueryPtr(new costmap_3d::Costmap3DQuery(*costmap_3d_query_)));
 
   candidate->teb().initTrajectoryToGoal(path_start, path_end, fun_position, cfg_->robot.max_vel_x, cfg_->robot.max_vel_theta,
                                  cfg_->robot.acc_lim_x, cfg_->robot.acc_lim_theta, start_orientation, goal_orientation, cfg_->trajectory.min_samples,

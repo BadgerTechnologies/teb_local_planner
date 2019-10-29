@@ -137,6 +137,7 @@ void TebOptimalPlanner::registerG2OTypes()
   factory->registerType("EDGE_DYNAMIC_OBSTACLE", new g2o::HyperGraphElementCreator<EdgeDynamicObstacle>);
   factory->registerType("EDGE_VIA_POINT", new g2o::HyperGraphElementCreator<EdgeViaPoint>);
   factory->registerType("EDGE_PREFER_ROTDIR", new g2o::HyperGraphElementCreator<EdgePreferRotDir>);
+  factory->registerType("EDGE_3D_COSTMAP", new g2o::HyperGraphElementCreator<Edge3DCostmap>);
   return;
 }
 
@@ -320,6 +321,8 @@ bool TebOptimalPlanner::buildGraph(double weight_multiplier)
 
   if (cfg_->obstacles.include_dynamic_obstacles)
     AddEdgesDynamicObstacles();
+
+  AddEdges3DCostmap();
   
   AddEdgesViaPoints();
   
@@ -853,6 +856,19 @@ void TebOptimalPlanner::AddEdgesAcceleration()
 }
 
 
+void TebOptimalPlanner::AddEdges3DCostmap()
+{
+  Eigen::Matrix<double,1,1> information;
+  information.fill(cfg_->optim.weight_costmap_3d);
+  for (int i = 0; i < teb_.sizePoses(); ++i)
+  {
+    Edge3DCostmap* edge = new Edge3DCostmap(costmap_3d_query_);
+    edge->setVertex(0,teb_.PoseVertex(i));
+    edge->setInformation(information);
+    edge->setTebConfig(*cfg_);
+    optimizer_->addEdge(edge);
+  }
+}
 
 void TebOptimalPlanner::AddEdgesTimeOptimal()
 {
@@ -1036,6 +1052,12 @@ void TebOptimalPlanner::computeCurrentCost(double obst_cost_scale, double viapoi
     if (edge_viapoint!=NULL)
     {
       cost_ += edge_viapoint->getError().squaredNorm() * viapoint_cost_scale;
+      continue;
+    }
+    Edge3DCostmap* edge_3d_costmap = dynamic_cast<Edge3DCostmap*>(*it);
+    if (edge_3d_costmap!=NULL)
+    {
+      cost_ += edge_3d_costmap->getError()[0];
       continue;
     }
   }

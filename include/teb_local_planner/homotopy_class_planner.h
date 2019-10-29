@@ -468,6 +468,11 @@ public:
 
 
   virtual TimedElasticBand& getTeb() { return best_teb_->getTeb(); }
+
+  /**
+   * @brief Enable using Costmap3DQuery distance queries in place of obstacles.
+   */
+  virtual void useCostmap3DQuery(costmap_3d::Costmap3DQueryPtr costmap_3d_query) {costmap_3d_query_ = costmap_3d_query;}
 protected:
 
   /** @name Explore new paths and keep only a single one for each homotopy class */
@@ -511,6 +516,7 @@ protected:
   const ViaPointContainer* via_points_; //!< Store the current list of via-points
 
   // internal objects (memory management owned)
+  costmap_3d::Costmap3DQueryPtr costmap_3d_query_; //!< If non-NULL use distance queries in place of obstacles
   TebVisualizationPtr visualization_; //!< Instance of the visualization class (local/global plan, obstacles, ...)
   TebOptimalPlannerPtr best_teb_; //!< Store the current best teb.
   RobotFootprintModelPtr robot_model_; //!< Robot model shared instance

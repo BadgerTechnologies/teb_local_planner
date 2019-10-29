@@ -46,6 +46,7 @@
 #include <base_local_planner/goal_functions.h>
 #include <base_local_planner/odometry_helper_ros.h>
 #include <base_local_planner/costmap_model.h>
+#include <base_local_planner/costmap_3d_model.h>
 
 
 // timed-elastic-band related classes
@@ -69,6 +70,7 @@
 
 // costmap
 #include <costmap_2d/costmap_2d_ros.h>
+#include <costmap_3d/costmap_3d_ros.h>
 #include <costmap_converter/costmap_converter_interface.h>
 
 
@@ -348,6 +350,7 @@ protected:
 
   // external objects (store weak pointers)
   costmap_2d::Costmap2DROS* costmap_ros_; //!< Pointer to the costmap ros wrapper, received from the navigation stack
+  costmap_3d::Costmap3DROS* costmap_3d_ros_; //!< Pointer to the costmap 3D ros wrapper, if use_costmap_3d and costmap is actually 3D
   costmap_2d::Costmap2D* costmap_; //!< Pointer to the 2d costmap (obtained from the costmap ros wrapper)
   tf::TransformListener* tf_; //!< pointer to Transform Listener
     

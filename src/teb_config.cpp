@@ -75,6 +75,7 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("wheelbase", robot.wheelbase, robot.wheelbase);
   nh.param("cmd_angle_instead_rotvel", robot.cmd_angle_instead_rotvel, robot.cmd_angle_instead_rotvel);
   nh.param("is_footprint_dynamic", robot.is_footprint_dynamic, robot.is_footprint_dynamic);
+  nh.param("use_costmap_3d", robot.use_costmap_3d, robot.use_costmap_3d);
   
   // GoalTolerance
   nh.param("xy_goal_tolerance", goal_tolerance.xy_goal_tolerance, goal_tolerance.xy_goal_tolerance);
@@ -226,6 +227,11 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   optim.weight_viapoint = cfg.weight_viapoint;
   optim.weight_adapt_factor = cfg.weight_adapt_factor;
   optim.obstacle_cost_exponent = cfg.obstacle_cost_exponent;
+  optim.weight_costmap_3d = cfg.weight_costmap_3d;
+  optim.weight_costmap_3d_exponential = cfg.weight_costmap_3d_exponential;
+  optim.weight_costmap_3d_exponential_shift = cfg.weight_costmap_3d_exponential_shift;
+  optim.weight_costmap_3d_linear = cfg.weight_costmap_3d_linear;
+  optim.weight_costmap_3d_linear_slope = cfg.weight_costmap_3d_linear_slope;
   
   // Homotopy Class Planner
   hcp.enable_multithreading = cfg.enable_multithreading;
