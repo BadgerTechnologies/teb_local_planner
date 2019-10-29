@@ -343,7 +343,7 @@ protected:
 
   void visualize(TebVisualizationPtr visualization);
   
-private:
+protected:
   // Definition of member variables
 
   // external objects (store weak pointers)
