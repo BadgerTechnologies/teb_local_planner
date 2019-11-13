@@ -407,6 +407,7 @@ private:
     
   // flags
   bool initialized_; //!< Keeps track about the correct initialization of this class
+  double last_robot_time_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
