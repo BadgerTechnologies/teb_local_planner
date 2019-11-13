@@ -404,6 +404,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   robot_vel_.angular.z = tf::getYaw(robot_vel_tf.getRotation());
   
   int sub_iteration = (++hcc_count % hcc_interval);
+  ROS_INFO_STREAM("hcc_count: " << hcc_count << " interval: " << hcc_interval << " sub_iteration: " << sub_iteration);
   if (sub_iteration == 0)
   {
   // prune global plan to cut off parts of the past (spatially before the robot)
@@ -548,7 +549,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   }
 
   double vx, omega;
-  double bearing_norm;
+  /// double bearing_norm;
   {
     // Get robot pose
     tf::Stamped<tf::Pose> robot_pose_tf;
@@ -576,6 +577,15 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     }
 
     Eigen::Vector2d deltaS = target_pose.position() - robot_pose.position();
+    Eigen::Vector2d targetVel = deltaS / dt;
+    Eigen::Rotation2D<double> R(-robot_pose.theta());
+    double ctrl_point_displacement = deltaS.norm() / 2.0;
+    Eigen::Matrix2d ctrl_point_matrix;
+    ctrl_point_matrix << 1, 0, 0, 1/ctrl_point_displacement;
+    Eigen::Vector2d cmd = ctrl_point_matrix * R * targetVel;
+    cmd_vel.linear.x = cmd[0];
+    cmd_vel.angular.z = cmd[1];
+#if 0
     // double percent_to_target_x = deltaS.norm() / (target_pose.position() - pose1.position()).norm();
     // double dth_robot_to_target = target_pose.theta() - robot_pose.theta();
     // double dth_pose1_to_robot = robot_pose.theta() - pose1.theta();
@@ -609,14 +619,15 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 
     cmd_vel.linear.x = vx;
     cmd_vel.angular.z = omega;
+#endif
   }
 
   // Saturate velocity, if the optimization results violates the constraints (could be possible due to soft constraints).
   saturateVelocity(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.robot.max_vel_x, cfg_.robot.max_vel_y,
                    cfg_.robot.max_vel_theta, cfg_.robot.max_vel_x_backwards);
 
-  ROS_INFO_STREAM(" bearing_norm=" << bearing_norm << " vx=" << vx << " omega=" << omega
-                  << " vx2=" << cmd_vel.linear.x << " omega2=" << cmd_vel.angular.z);
+  /// ROS_INFO_STREAM(" bearing_norm=" << bearing_norm << " vx=" << vx << " omega=" << omega
+                  /// << " vx2=" << cmd_vel.linear.x << " omega2=" << cmd_vel.angular.z);
 
   // convert rot-vel to steering angle if desired (carlike robot).
   // The min_turning_radius is allowed to be slighly smaller since it is a soft-constraint
