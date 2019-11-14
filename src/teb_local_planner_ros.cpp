@@ -66,9 +66,9 @@ PLUGINLIB_EXPORT_CLASS(teb_local_planner::TebLocalPlannerROS, nav_core::BaseLoca
 namespace teb_local_planner
 {
 
-static int hcc_interval = 4;
+static int hcc_interval = 1000;
 static int hcc_count = -1;
-static double hcc_dt = 0.2;
+static double hcc_dt = 0.4;
 static double hcc_orient_thresh = 0.01;
 ros::Subscriber hcc_interval_sub;
 ros::Subscriber hcc_dt_sub;
@@ -404,7 +404,6 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   robot_vel_.angular.z = tf::getYaw(robot_vel_tf.getRotation());
   
   int sub_iteration = (++hcc_count % hcc_interval);
-  ROS_INFO_STREAM("hcc_count: " << hcc_count << " interval: " << hcc_interval << " sub_iteration: " << sub_iteration);
   if (sub_iteration == 0)
   {
   // prune global plan to cut off parts of the past (spatially before the robot)
@@ -533,6 +532,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   }
 
   time_last_good_plan = ros::Time::now();
+  last_robot_time_ = 0.0;
 
   geometry_msgs::Twist cmd_vel0;
   // Get the velocity command for this sampling interval
@@ -556,15 +556,28 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     costmap_ros_->getRobotPose(robot_pose_tf);
     PoseSE2 robot_pose(robot_pose_tf);
 
-    PoseSE2& pose1 = planner_->getTeb().Pose(0);
-    PoseSE2& pose2 = planner_->getTeb().Pose(1);
+    /// PoseSE2& pose1 = planner_->getTeb().Pose(0);
+    /// PoseSE2& pose2 = planner_->getTeb().Pose(1);
     double dt = hcc_dt;
-    // double plan_time = (ros::Time::now() - time_last_good_plan).toSec() + dt;
-    double robot_time = findRobotTimeInPlan(robot_pose, 0.0, 6.0, 0.01);
-    double plan_time = robot_time + dt;
-    ROS_INFO_STREAM("t = " << (plan_time));
-    // PoseSE2 target_pose = interpolatePath(sub_iteration * control_interval + dt);
-    PoseSE2 target_pose = interpolatePath(plan_time);
+    Eigen::Vector2d deltaS;
+    PoseSE2 target_pose;
+    double robot_time = findRobotTimeInPlan(robot_pose, last_robot_time_, last_robot_time_ + 6.0, 0.01);
+    last_robot_time_ = robot_time;
+    bool is_target_at_goal = false;
+    for (;;)
+    {
+      target_pose = interpolatePath(robot_time + dt);
+      deltaS = target_pose.position() - robot_pose.position();
+      if (deltaS.norm() > 0.04)
+        break;
+      if (target_pose.position() == planner_->getTeb().BackPose().position())
+      {
+        is_target_at_goal = true;
+        break;
+      }
+      dt += 0.1;
+    }
+    ROS_INFO_STREAM_THROTTLE(0.25, "robot_time in plan: " << robot_time << " dt: " << dt);
 
     {
       // Just debug visualization:
@@ -576,15 +589,33 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
       visualizeInterpolatedPath(0.0, 6.0, 0.01);
     }
 
-    Eigen::Vector2d deltaS = target_pose.position() - robot_pose.position();
-    Eigen::Vector2d targetVel = deltaS / dt;
-    Eigen::Rotation2D<double> R(-robot_pose.theta());
-    double ctrl_point_displacement = deltaS.norm() / 2.0;
-    Eigen::Matrix2d ctrl_point_matrix;
-    ctrl_point_matrix << 1, 0, 0, 1/ctrl_point_displacement;
-    Eigen::Vector2d cmd = ctrl_point_matrix * R * targetVel;
-    cmd_vel.linear.x = cmd[0];
-    cmd_vel.angular.z = cmd[1];
+    if (is_target_at_goal && deltaS.norm() < 0.03)
+    {
+      cmd_vel.linear.x = 0.0;
+      double delta_theta = g2o::normalize_theta(target_pose.theta() - robot_pose.theta());
+      // ROS_INFO_STREAM("delta_theta: " << delta_theta << " abs: " << fabs(delta_theta));
+      if (fabs(delta_theta) > 0.005)
+        cmd_vel.angular.z = g2o::sign(delta_theta) * std::max((double)fabs(delta_theta), 0.06);
+      else
+        cmd_vel.angular.z = 0.0;
+    }
+    else
+    {
+      double bearing = atan2(deltaS[1], deltaS[0]);
+      Eigen::Vector2d targetVel = deltaS / dt;
+      Eigen::Rotation2D<double> R(-robot_pose.theta());
+      double ctrl_point_displacement = deltaS.norm() / 2.0;
+      if (fabs(g2o::normalize_theta(target_pose.theta() - bearing)) > M_PI/2)
+      {
+        ROS_INFO_STREAM("Goal is behind robot");
+        ctrl_point_displacement *= -1.0;
+      }
+      Eigen::Matrix2d ctrl_point_matrix;
+      ctrl_point_matrix << 1, 0, 0, 1/ctrl_point_displacement;
+      Eigen::Vector2d cmd = ctrl_point_matrix * R * targetVel;
+      cmd_vel.linear.x = cmd[0];
+      cmd_vel.angular.z = cmd[1];
+    }
 #if 0
     // double percent_to_target_x = deltaS.norm() / (target_pose.position() - pose1.position()).norm();
     // double dth_robot_to_target = target_pose.theta() - robot_pose.theta();
@@ -1126,7 +1157,7 @@ void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega,
 
   if (fabs(orig_omega) > 1e-3)  // Avoid div by near-zero
     vx *= omega / orig_omega;
-  ROS_INFO_STREAM("vx_ratio=" << (vx/orig_vx) << " omega_ratio=" << (omega/orig_omega));
+  // ROS_INFO_STREAM("vx_ratio=" << (vx/orig_vx) << " omega_ratio=" << (omega/orig_omega));
 }
      
      
