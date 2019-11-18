@@ -161,7 +161,8 @@ public:
     double weight_prefer_rotdir; //!< Optimization weight for preferring a specific turning direction (-> currently only activated if an oscillation is detected, see 'oscillation_recovery'
 
     double weight_adapt_factor; //!< Some special weights (currently 'weight_obstacle') are repeatedly scaled by this factor in each outer TEB iteration (weight_new = weight_old*factor); Increasing weights iteratively instead of setting a huge value a-priori leads to better numerical conditions of the underlying optimization problem.
-    double obstacle_cost_exponent; //!< Exponent for nonlinear obstacle cost (cost = linear_cost * obstacle_cost_exponent). Set to 1 to disable nonlinear cost (default)
+    double obstacle_cost_exponent; //!< Exponent for nonlinear obstacle cost (cost = min_obstacle_dist * pow([fraction of possible linear_cost], obstacle_cost_exponent)). Set to 1 to disable nonlinear cost (default)
+    double inflation_cost_exponent; //!< Exponent for nonlinear obstacle inflation cost (cost = inflation_dist * pow([fraction of possible inflation_cost], inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
   } optim; //!< Optimization related parameters
 
 
@@ -315,6 +316,7 @@ public:
 
     optim.weight_adapt_factor = 2.0;
     optim.obstacle_cost_exponent = 1.0;
+    optim.inflation_cost_exponent = 1.0;
 
     // Homotopy Class Planner
 
