@@ -705,6 +705,7 @@ public:
   TimedElasticBand teb_; //!< Actual trajectory object
   virtual TimedElasticBand& getTeb() { return teb_; }
 protected:
+  TimedElasticBand filtered_teb_;
   RobotFootprintModelPtr robot_model_; //!< Robot model
   boost::shared_ptr<g2o::SparseOptimizer> optimizer_; //!< g2o optimizer for trajectory optimization
   std::pair<bool, geometry_msgs::Twist> vel_start_; //!< Store the initial velocity at the start pose
