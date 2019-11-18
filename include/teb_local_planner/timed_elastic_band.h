@@ -636,8 +636,7 @@ public:
    */
   bool isTrajectoryInsideRegion(double radius, double max_dist_behind_robot=-1, int skip_poses=0);
   
-  TimedElasticBand& operator=(const TimedElasticBand& other);
-  void ema_step(const TimedElasticBand& other, double alpha);
+  
   
   //@}
 	

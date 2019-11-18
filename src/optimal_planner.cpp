@@ -39,9 +39,6 @@
 #include <teb_local_planner/optimal_planner.h>
 #include <map>
 #include <limits>
-#include <ros/ros.h>
-#include <ros/console.h>
-#include "teb_local_planner/g2o_types/vertex_pose.h"
 
 
 namespace teb_local_planner
@@ -213,17 +210,10 @@ bool TebOptimalPlanner::optimizeTEB(int iterations_innerloop, int iterations_out
     if (compute_cost_afterwards && i==iterations_outerloop-1) // compute cost vec only in the last iteration
       computeCurrentCost(obst_cost_scale, viapoint_cost_scale, alternative_time_cost);
       
-    filtered_teb_.ema_step(teb_, 0.05);
-    if (teb_.sizePoses() > 12)
-    {
-      ROS_INFO_STREAM("Iter # " << i << " x: " << teb_.PoseVertex(10)->x() << " filtered: " << filtered_teb_.PoseVertex(10)->x());
-    }
-
     clearGraph();
     
     weight_multiplier *= cfg_->optim.weight_adapt_factor;
   }
-  // teb_.ema_step(filtered_teb_, 1.0);
 
   return true;
 }
@@ -301,7 +291,6 @@ bool TebOptimalPlanner::plan(const PoseSE2& start, const PoseSE2& goal, const ge
       teb_.initTrajectoryToGoal(start, goal, 0, cfg_->robot.max_vel_x, cfg_->trajectory.min_samples, cfg_->trajectory.allow_init_with_backwards_motion);
     }
   }
-  filtered_teb_ = teb_;
   if (start_vel)
     setVelocityStart(*start_vel);
   if (free_goal_vel)

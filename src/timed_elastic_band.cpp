@@ -37,8 +37,6 @@
  *********************************************************************/
 
 #include <teb_local_planner/timed_elastic_band.h>
-#include "teb_local_planner/g2o_types/vertex_pose.h"
-#include "teb_local_planner/g2o_types/vertex_timediff.h"
 
 
 namespace teb_local_planner
@@ -625,55 +623,7 @@ bool TimedElasticBand::isTrajectoryInsideRegion(double radius, double max_dist_b
     return true;
 }
 
-TimedElasticBand& TimedElasticBand::operator=(const TimedElasticBand& other)
-{
-  if (this != &other)
-  {
-    // TODO: Just copy the items if vector sizes are already the same
-    if (pose_vec_.size() != other.pose_vec_.size() || timediff_vec_.size() != other.timediff_vec_.size())
-    {
-      clearTimedElasticBand();
-      for (auto item : other.pose_vec_)
-      {
-        pose_vec_.push_back(new VertexPose(*item));
-      }
-      for (auto item : other.timediff_vec_)
-      {
-        timediff_vec_.push_back(new VertexTimeDiff(*item));
-      }
-    }
-    else
-    {
-      ema_step(other, 1.0);  // alpha is 1.0, so it fully overwrites
-    }
-  }
-}
 
-void TimedElasticBand::ema_step(const TimedElasticBand& other, double alpha)
-{
-  if (pose_vec_.size() != other.pose_vec_.size() || timediff_vec_.size() != other.timediff_vec_.size())
-  {
-    *this = other;
-    return;
-  }
-  {
-    auto other_it = other.pose_vec_.begin();
-    for (auto it = pose_vec_.begin(); it != pose_vec_.end(); ++it)
-    {
-      (*it)->x() = alpha * (*other_it)->x() + (1.0 - alpha) * (*it)->x();
-      (*it)->y() = alpha * (*other_it)->y() + (1.0 - alpha) * (*it)->y();
-      (*it)->theta() = alpha * (*other_it)->theta() + (1.0 - alpha) * (*it)->theta();
-      ++other_it;
-    }
-  }
-  {
-    auto other_it = other.timediff_vec_.begin();
-    for (auto it = timediff_vec_.begin(); it != timediff_vec_.end(); ++it)
-    {
-      (*it)->dt() = alpha * (*other_it)->dt() + (1.0 - alpha) * (*it)->dt();
-      ++other_it;
-    }
-  }
-}
+
 
 } // namespace teb_local_planner
