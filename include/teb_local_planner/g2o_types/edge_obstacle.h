@@ -244,7 +244,8 @@ public:
 
     // Additional linear inflation cost
     _error[1] = penaltyBoundFromBelow(dist, cfg_->obstacles.inflation_dist, 0.0);
-
+    if (cfg_->obstacles.inflation_dist > 0.0)
+      _error[1] = cfg_->obstacles.inflation_dist * std::pow(_error[1] / cfg_->obstacles.inflation_dist, cfg_->obstacles.dynamic_obstacle_inflation_dist);
 
     ROS_ASSERT_MSG(std::isfinite(_error[0]) && std::isfinite(_error[1]), "EdgeInflatedObstacle::computeError() _error[0]=%f, _error[1]=%f\n",_error[0], _error[1]);
   }
