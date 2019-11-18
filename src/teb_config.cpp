@@ -101,6 +101,7 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("obstacle_association_cutoff_factor", obstacles.obstacle_association_cutoff_factor, obstacles.obstacle_association_cutoff_factor);
   nh.param("costmap_converter_plugin", obstacles.costmap_converter_plugin, obstacles.costmap_converter_plugin);
   nh.param("costmap_converter_spin_thread", obstacles.costmap_converter_spin_thread, obstacles.costmap_converter_spin_thread);
+  nh.param("costmap_converter_rate", obstacles.costmap_converter_rate, obstacles.costmap_converter_rate);
   
   // Optimization
   nh.param("no_inner_iterations", optim.no_inner_iterations, optim.no_inner_iterations);
