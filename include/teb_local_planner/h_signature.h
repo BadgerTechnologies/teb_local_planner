@@ -69,7 +69,6 @@ class HSignature : public EquivalenceClass
 {
 
 public:
-
     /**
     * @brief Constructor accepting a TebConfig
     * @param cfg TebConfig storing some user configuration options
@@ -117,7 +116,6 @@ public:
 
         std::advance(path_end, -1); // reduce path_end by 1 (since we check line segments between those path points
 
-        typedef std::complex<long double> cplx;
         // guess map size (only a really really coarse guess is required
         // use distance from start to goal as distance to each direction
         // TODO: one could move the map determination outside this function, since it remains constant for the whole planning interval
@@ -155,8 +153,8 @@ public:
 //                bool db = (rl % 20 == 0);
 //                if (db) ROS_INFO_STREAM("Iteration:" << std::setprecision(4));
                 cplx obst_l = obstacles->at(l)->getCentroidCplx();
-                cplx f0 = (long double) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
-                //cplx f0 = (long double) cfg_->hcp.h_signature_prescaler * (long double)a*(obst_l-map_bottom_left) * (long double)b*(obst_l-map_top_right);
+                cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
+                //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
 //                if (db) ROS_INFO_STREAM("obst_l:" << obst_l << " f0:" << f0);
 
                 // denum contains product with all obstacles exepct j==l
@@ -244,13 +242,13 @@ public:
      * @brief Get the current value of the h-signature (read-only)
      * @return h-signature in complex-number format
      */
-     const std::complex<long double>& value() const {return hsignature_;}
+     const cplx& value() const {return hsignature_;}
 
 
 private:
 
     const TebConfig* cfg_;
-    std::complex<long double> hsignature_;
+    cplx hsignature_;
 };
 
 
@@ -313,8 +311,8 @@ public:
         // iterate path
         for (path_iter = path_start, timediff_iter = timediff_start.get(); path_iter != path_end; ++path_iter, ++timediff_iter)
         {
-          std::complex<long double> z1 = fun_cplx_point(*path_iter);
-          std::complex<long double> z2 = fun_cplx_point(*boost::next(path_iter));
+          cplx z1 = fun_cplx_point(*path_iter);
+          cplx z2 = fun_cplx_point(*boost::next(path_iter));
           Eigen::Vector2d pose (z1.real(), z1.imag());
           Eigen::Vector2d nextpose (z2.real(), z2.imag());
 
