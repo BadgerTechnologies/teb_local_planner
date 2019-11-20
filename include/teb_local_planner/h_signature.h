@@ -156,7 +156,7 @@ public:
                     cplx obst_j = obstacles->at(j)->getCentroidCplx();
                     cplx diff = obst_l - obst_j;
                     //if (diff.real()!=0 || diff.imag()!=0)
-                    if (std::abs(diff)<0.05) // skip really close obstacles
+                    if (std::norm(diff) < 0.05 * 0.05) // skip really close obstacles
                         continue;
                      else
                         Al /= diff;
