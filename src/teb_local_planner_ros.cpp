@@ -577,7 +577,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
       }
       dt += 0.1;
     }
-    ROS_INFO_STREAM_THROTTLE(0.25, "robot_time in plan: " << robot_time << " dt: " << dt);
+    //ROS_INFO_STREAM_THROTTLE(0.25, "robot_time in plan: " << robot_time << " dt: " << dt);
 
     {
       // Just debug visualization:
