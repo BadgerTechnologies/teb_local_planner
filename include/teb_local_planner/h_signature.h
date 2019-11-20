@@ -95,6 +95,8 @@ public:
     template<typename BidirIter, typename Fun>
     void calculateHSignature(BidirIter path_start, BidirIter path_end, Fun fun_cplx_point, const ObstContainer* obstacles)
     {
+        ros::Time start_time = ros::Time::now();
+        int Npath = std::distance(path_start, path_end);
         if (obstacles->empty())
         {
             hsignature_ = cplx(0,0);
@@ -168,6 +170,12 @@ public:
             }
             ++path_start;
         }
+        ros::Time end_time = ros::Time::now();
+        ROS_INFO_STREAM("Elapsed: " << (end_time - start_time).toNSec() / 1000
+                        << " Hsig: " << hsignature_
+                        << " Nobst: " << obstacles->size()
+                        << " Npath: " << Npath);
+
     }
 
 
