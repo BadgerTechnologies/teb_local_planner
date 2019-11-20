@@ -157,16 +157,15 @@ public:
                 cplx Al = f0;
                 for (std::size_t j=0; j<obstacles->size(); ++j)
                 {
-                    if (j==l)
-                        continue;
-                    cplx obst_j = obstacles->at(j)->getCentroidCplx();
-                    cplx diff = obst_l - obst_j;
- //                   if (db) ROS_INFO_STREAM("diff: " << diff << " abs: " << std::abs(diff) << " Al: " << Al);
-                    //if (diff.real()!=0 || diff.imag()!=0)
-                    if (std::abs(diff)<0.05) // skip really close obstacles
-                        continue;
-                    else
-                        Al /= std::abs(diff);
+                if (j==l)
+                    continue;
+                cplx obst_j = obstacles->at(j)->getCentroidCplx();
+                cplx diff = obst_l - obst_j;
+                //if (diff.real()!=0 || diff.imag()!=0)
+                if (std::abs(diff)<0.05) // skip really close obstacles
+                    Al /= diff;
+                else
+                    continue;
                 }
                 // compute log value
                 double diff2 = std::abs(z2-obst_l);
@@ -206,9 +205,6 @@ public:
         const HSignature* hother = dynamic_cast<const HSignature*>(&other); // TODO: better architecture without dynamic_cast
         if (hother)
         {
-            // ROS_INFO("EQ1: (%.3Lf, %.3Lf)  EQ2: (%.3Lf, %.3Lf)",
-            //          hsignature_.real(), hsignature_.imag(),
-            //          hother->hsignature_.real(), hother->hsignature_.imag());
             double diff_real = std::abs(hother->hsignature_.real() - hsignature_.real());
             double diff_imag = std::abs(hother->hsignature_.imag() - hsignature_.imag());
             if (diff_real<=cfg_->hcp.h_signature_threshold && diff_imag<=cfg_->hcp.h_signature_threshold)
