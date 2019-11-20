@@ -201,6 +201,10 @@ bool HomotopyClassPlanner::addEquivalenceClassIfNew(const EquivalenceClassPtr& e
     return false;
   }
 
+  auto hsig = dynamic_cast<HSignature *>(eq_class.get());
+  if (hsig != nullptr)
+    ROS_INFO_STREAM("New Hsig: " << hsig->value());
+
   if (hasEquivalenceClass(eq_class))
   {
     // Allow up to configured number of Tebs that are in the same homotopy
@@ -586,6 +590,11 @@ TebOptimalPlannerPtr HomotopyClassPlanner::selectBestTeb()
     }
 
 
+    if (best_teb_)
+    {
+        ROS_INFO_STREAM("Best Teb #" << std::distance(tebs_.begin(), std::find(tebs_.begin(), tebs_.end(), best_teb_)));
+    }
+
     best_teb_.reset(); // reset pointer
 
     for (TebOptPlannerContainer::iterator it_teb = tebs_.begin(); it_teb != tebs_.end(); ++it_teb)
@@ -605,6 +614,8 @@ TebOptimalPlannerPtr HomotopyClassPlanner::selectBestTeb()
             teb_cost = min_cost_initial_plan_teb;
         else
             teb_cost = it_teb->get()->getCurrentCost();
+        ROS_INFO_STREAM("Teb #" << std::distance(tebs_.begin(), it_teb)
+                        << " cost: " << teb_cost);
 
         if (teb_cost < min_cost)
         {
