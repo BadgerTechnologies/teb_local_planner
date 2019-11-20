@@ -68,16 +68,16 @@ namespace teb_local_planner
 {
 
 //!< Inline function used for calculateHSignature() in combination with VertexPose pointers
-inline std::complex<long double> getCplxFromVertexPosePtr(const VertexPose* pose)
+inline EquivalenceClass::cplx getCplxFromVertexPosePtr(const VertexPose* pose)
 {
-  return std::complex<long double>(pose->x(), pose->y());
+  return EquivalenceClass::cplx(pose->x(), pose->y());
 };
 
 
 //!< Inline function used for calculateHSignature() in combination with geometry_msgs::PoseStamped
-inline std::complex<long double> getCplxFromMsgPoseStamped(const geometry_msgs::PoseStamped& pose)
+inline EquivalenceClass::cplx getCplxFromMsgPoseStamped(const geometry_msgs::PoseStamped& pose)
 {
-  return std::complex<long double>(pose.pose.position.x, pose.pose.position.y);
+  return EquivalenceClass::cplx(pose.pose.position.x, pose.pose.position.y);
 };
 
 /**
@@ -419,7 +419,7 @@ public:
    * @param h2 second h-signature
    * @return \c true if both h-signatures are similar, false otherwise.
    */
-  inline static bool isHSignatureSimilar(const std::complex<long double>& h1, const std::complex<long double>& h2, double threshold)
+  inline static bool isHSignatureSimilar(const EquivalenceClass::cplx& h1, const EquivalenceClass::cplx& h2, double threshold)
   {
       double diff_real = std::abs(h2.real() - h1.real());
       double diff_imag = std::abs(h2.imag() - h1.imag());
