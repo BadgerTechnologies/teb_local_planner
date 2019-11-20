@@ -63,7 +63,7 @@ namespace teb_local_planner
 class EquivalenceClass
 {
 public:
-   typedef std::complex<double> cplx;
+   typedef std::complex<long double> cplx;
 
    /**
     * @brief Default constructor
