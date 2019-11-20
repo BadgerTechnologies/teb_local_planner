@@ -90,9 +90,9 @@ typedef boost::graph_traits<HcGraph>::edge_iterator HcGraphEdgeIterator;
 typedef boost::graph_traits<HcGraph>::adjacency_iterator HcGraphAdjecencyIterator;
 
 //!< Inline function used for calculateHSignature() in combination with HCP graph vertex descriptors
-inline std::complex<long double> getCplxFromHcGraph(HcGraphVertexType vert_descriptor, const HcGraph& graph)
+inline EquivalenceClass::cplx getCplxFromHcGraph(HcGraphVertexType vert_descriptor, const HcGraph& graph)
 {
-  return std::complex<long double>(graph[vert_descriptor].pos.x(), graph[vert_descriptor].pos.y());
+  return EquivalenceClass::cplx(graph[vert_descriptor].pos.x(), graph[vert_descriptor].pos.y());
 }
 
 //!< Inline function used for initializing the TEB in combination with HCP graph vertex descriptors

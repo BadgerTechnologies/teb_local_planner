@@ -39,6 +39,7 @@
 #ifndef EQUIVALENCE_RELATIONS_H_
 #define EQUIVALENCE_RELATIONS_H_
 
+#include <complex>
 #include <boost/shared_ptr.hpp>
 
 namespace teb_local_planner
@@ -63,6 +64,7 @@ namespace teb_local_planner
 class EquivalenceClass
 {
 public:
+   typedef std::complex<long double> cplx;
 
    /**
     * @brief Default constructor

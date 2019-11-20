@@ -98,7 +98,7 @@ public:
     {
         if (obstacles->empty())
         {
-            hsignature_ = std::complex<double>(0,0);
+            hsignature_ = cplx(0,0);
             return;
         }
 
@@ -114,7 +114,6 @@ public:
 
         std::advance(path_end, -1); // reduce path_end by 1 (since we check line segments between those path points
 
-        typedef std::complex<long double> cplx;
         // guess map size (only a really really coarse guess is required
         // use distance from start to goal as distance to each direction
         // TODO: one could move the map determination outside this function, since it remains constant for the whole planning interval
@@ -230,13 +229,13 @@ public:
      * @brief Get the current value of the h-signature (read-only)
      * @return h-signature in complex-number format
      */
-     const std::complex<long double>& value() const {return hsignature_;}
+     const cplx& value() const {return hsignature_;}
 
 
 private:
 
     const TebConfig* cfg_;
-    std::complex<long double> hsignature_;
+    cplx hsignature_;
 };
 
 
@@ -307,8 +306,8 @@ public:
         // iterate path
         for (path_iter = path_start, timediff_iter = timediff_start.get(); path_iter != path_end; ++path_iter, ++timediff_iter)
         {
-          std::complex<long double> z1 = fun_cplx_point(*path_iter);
-          std::complex<long double> z2 = fun_cplx_point(*std::next(path_iter));
+          cplx z1 = fun_cplx_point(*path_iter);
+          cplx z2 = fun_cplx_point(*std::next(path_iter));
 
           transition_time = next_transition_time;
           if (timediff_start == boost::none || timediff_end == boost::none) // if no time information is provided yet, approximate transition time
