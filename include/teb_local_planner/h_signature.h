@@ -135,8 +135,6 @@ public:
 
         hsignature_ = 0; // reset local signature
 
-        std::vector<double> imag_proposals(5);
-
         // iterate path
         while(path_start != path_end)
         {
@@ -163,22 +161,9 @@ public:
                      else
                         Al /= diff;
                 }
-                // compute log value
-                double diff2 = std::abs(z2-obst_l);
-                double diff1 = std::abs(z1-obst_l);
-                if (diff2 == 0 || diff1 == 0)
+                if (z1-obst_l == cplx(0, 0))
                     continue;
-                double log_real = std::log(diff2)-std::log(diff1);
-                // complex ln has more than one solution -> choose minimum abs angle -> paper
-                double arg_diff = std::arg(z2-obst_l)-std::arg(z1-obst_l);
-                imag_proposals.at(0) = arg_diff;
-                imag_proposals.at(1) = arg_diff+2*M_PI;
-                imag_proposals.at(2) = arg_diff-2*M_PI;
-                imag_proposals.at(3) = arg_diff+4*M_PI;
-                imag_proposals.at(4) = arg_diff-4*M_PI;
-                double log_imag = *std::min_element(imag_proposals.begin(),imag_proposals.end(),smaller_than_abs);
-                cplx log_value(log_real,log_imag);
-                //cplx log_value = std::log(z2-obst_l)-std::log(z1-obst_l); // the principal solution doesn't seem to work
+                cplx log_value(std::log((z2-obst_l) / (z1-obst_l)));
                 hsignature_ += Al*log_value;
             }
             ++path_start;
