@@ -147,8 +147,8 @@ public:
             for (std::size_t l=0; l<obstacles->size(); ++l) // iterate all obstacles
             {
                 cplx obst_l = obstacles->at(l)->getCentroidCplx();
-                //cplx f0 = (long double) prescaler * std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
-                cplx f0 = (long double) cfg_->hcp.h_signature_prescaler * (long double)a*(obst_l-map_bottom_left) * (long double)b*(obst_l-map_top_right);
+                cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
+                //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
 
                 // denum contains product with all obstacles exepct j==l
                 cplx Al = f0;
