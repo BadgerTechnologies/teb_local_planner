@@ -167,7 +167,6 @@ public:
                 if (z1-obst_l == cplx(0, 0))
                     continue;
                 cplx log_value(std::log((z2-obst_l) / (z1-obst_l)));
-                //cplx log_value = std::log(z2-obst_l)-std::log(z1-obst_l); // the principal solution doesn't seem to work
                 hsignature_ += Al*log_value;
             }
             ++path_start;
