@@ -147,13 +147,8 @@ public:
 
             for (std::size_t l=0; l<obstacles->size(); ++l) // iterate all obstacles
             {
-//                ++rl;
-//                bool db = (rl % 20 == 0);
-//                if (db) ROS_INFO_STREAM("Iteration:" << std::setprecision(4));
                 cplx obst_l = obstacles->at(l)->getCentroidCplx();
                 cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
-                //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
-//                if (db) ROS_INFO_STREAM("obst_l:" << obst_l << " f0:" << f0);
 
                 // denum contains product with all obstacles exepct j==l
                 cplx Al = f0;
