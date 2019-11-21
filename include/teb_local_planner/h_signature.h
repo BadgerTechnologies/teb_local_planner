@@ -100,7 +100,7 @@ public:
         int Npath = std::distance(path_start, path_end);
         if (obstacles->empty())
         {
-            hsignature_ = std::complex<double>(0,0);
+            hsignature_ = cplx(0,0);
             return;
         }
 
