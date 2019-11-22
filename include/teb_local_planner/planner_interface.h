@@ -49,6 +49,7 @@
 // this package
 #include <teb_local_planner/pose_se2.h>
 #include <teb_local_planner/visualization.h>
+#include <teb_local_planner/timed_elastic_band.h>
 
 // messages
 #include <geometry_msgs/PoseArray.h>
@@ -205,6 +206,7 @@ public:
   {
   }      
                 
+  virtual TimedElasticBand* getTeb() = 0;
 };
 
 //! Abbrev. for shared instances of PlannerInterface or it's subclasses 
