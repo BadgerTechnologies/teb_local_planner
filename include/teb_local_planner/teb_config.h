@@ -103,6 +103,16 @@ public:
     bool is_footprint_dynamic; //<! If true, updated the footprint before checking trajectory feasibility
   } robot; //!< Robot related parameters
 
+  //! Control law
+  struct ControlLaw
+  {
+    double carrot_dt; //!< (seconds) Look this many seconds ahead of the robot on the plan to choose a carrot pose for control law
+    double carrot_min_dist; //!< (meters) If carrot pose is closer than this minimum distance, teporarily increase carrot_dt until it is is this far away (or we reach end of plan)
+    double turn_in_place_goal_dist; //!< (meters) When robot is within the minimum of this distance and the xy_goal_tolerance, switch to turn-in-place control law to finish the goal
+    double turn_in_place_Kp; //!< Proportional gain when turning in place
+    double turn_in_place_min_vel_theta; //!< (rad/s) Min rotation speed when turning in place. In case motors have a minimum speed
+  } control; //!< Control-related parameters
+
   //! Goal tolerance related parameters
   struct GoalTolerance
   {
@@ -265,6 +275,13 @@ public:
     robot.wheelbase = 1.0;
     robot.cmd_angle_instead_rotvel = false;
     robot.is_footprint_dynamic = false;
+
+    // Control Law
+    control.carrot_dt = 0.4;
+    control.carrot_min_dist = 0.04;
+    control.turn_in_place_goal_dist = 10.0;  // Default disabled. Uses xy_goal_tolerance since it is smaller.
+    control.turn_in_place_Kp = 1.0;
+    control.turn_in_place_min_vel_theta = 0.0;
 
     // GoalTolerance
 

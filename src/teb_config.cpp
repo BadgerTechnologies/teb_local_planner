@@ -80,7 +80,14 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("wheelbase", robot.wheelbase, robot.wheelbase);
   nh.param("cmd_angle_instead_rotvel", robot.cmd_angle_instead_rotvel, robot.cmd_angle_instead_rotvel);
   nh.param("is_footprint_dynamic", robot.is_footprint_dynamic, robot.is_footprint_dynamic);
-  
+
+  // Control Law
+  nh.param("carrot_dt", control.carrot_dt, control.carrot_dt);
+  nh.param("carrot_min_dist", control.carrot_min_dist, control.carrot_min_dist);
+  nh.param("turn_in_place_goal_dist", control.turn_in_place_goal_dist, control.turn_in_place_goal_dist);
+  nh.param("turn_in_place_Kp", control.turn_in_place_Kp, control.turn_in_place_Kp);
+  nh.param("turn_in_place_min_vel_theta", control.turn_in_place_min_vel_theta, control.turn_in_place_min_vel_theta);
+
   // GoalTolerance
   nh.param("xy_goal_tolerance", goal_tolerance.xy_goal_tolerance, goal_tolerance.xy_goal_tolerance);
   nh.param("yaw_goal_tolerance", goal_tolerance.yaw_goal_tolerance, goal_tolerance.yaw_goal_tolerance);
@@ -204,7 +211,14 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   robot.min_turning_radius = cfg.min_turning_radius;
   robot.wheelbase = cfg.wheelbase;
   robot.cmd_angle_instead_rotvel = cfg.cmd_angle_instead_rotvel;
-  
+
+  // Control Law
+  control.carrot_dt = cfg.carrot_dt;
+  control.carrot_min_dist = cfg.carrot_min_dist;
+  control.turn_in_place_goal_dist = cfg.turn_in_place_goal_dist;
+  control.turn_in_place_Kp = cfg.turn_in_place_Kp;
+  control.turn_in_place_min_vel_theta = cfg.turn_in_place_min_vel_theta;
+
   // GoalTolerance
   goal_tolerance.xy_goal_tolerance = cfg.xy_goal_tolerance;
   goal_tolerance.yaw_goal_tolerance = cfg.yaw_goal_tolerance;
