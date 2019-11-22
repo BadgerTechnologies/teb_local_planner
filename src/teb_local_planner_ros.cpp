@@ -843,6 +843,8 @@ double TebLocalPlannerROS::estimateLocalGoalOrientation(const std::vector<geomet
       
 void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega, double max_vel_x, double max_vel_y, double max_vel_theta, double max_vel_x_backwards) const
 {
+  double orig_vx = vx;
+
   // Limit translational velocity for forward driving
   if (vx > max_vel_x)
     vx = max_vel_x;
@@ -853,12 +855,6 @@ void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega,
   else if (vy < -max_vel_y)
     vy = -max_vel_y;
   
-  // Limit angular velocity
-  if (omega > max_vel_theta)
-    omega = max_vel_theta;
-  else if (omega < -max_vel_theta)
-    omega = -max_vel_theta;
-  
   // Limit backwards velocity
   if (max_vel_x_backwards<=0)
   {
@@ -866,6 +862,23 @@ void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega,
   }
   else if (vx < -max_vel_x_backwards)
     vx = -max_vel_x_backwards;
+
+  // Scale down omega by the amount that the translational velocity was scaled down so that
+  // we will drive the intended arc.
+  if (fabs(orig_vx) > 1e-3)  // Avoid div by near-zero
+    omega *= vx / orig_vx;
+  double orig_omega = omega;
+
+  // Limit angular velocity
+  if (omega > max_vel_theta)
+    omega = max_vel_theta;
+  else if (omega < -max_vel_theta)
+    omega = -max_vel_theta;
+
+  // Scale down translational velocity by the amount that omega was scaled down so that
+  // we will drive the intended arc.
+  if (fabs(orig_omega) > 1e-3)  // Avoid div by near-zero
+    vx *= omega / orig_omega;
 }
      
      
@@ -1168,5 +1181,3 @@ double TebLocalPlannerROS::getNumberFromXMLRPC(XmlRpc::XmlRpcValue& value, const
 }
 
 } // end namespace teb_local_planner
-
-
