@@ -526,6 +526,8 @@ public:
    */
   virtual bool isHorizonReductionAppropriate(const std::vector<geometry_msgs::PoseStamped>& initial_plan) const;
   
+  virtual TimedElasticBand* getTeb() { return &teb_; }
+
   //@}
   
 protected:

@@ -510,6 +510,7 @@ public:
    */
   void randomlyDropTebs();
 
+  virtual TimedElasticBand* getTeb() { return best_teb_.get() ? best_teb_->getTeb() : nullptr; }
 protected:
 
   /** @name Explore new paths and keep only a single one for each homotopy class */
