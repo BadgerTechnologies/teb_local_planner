@@ -36,6 +36,7 @@
  * Author: Christoph Rösmann
  *********************************************************************/
 
+#include <limits>
 #include <teb_local_planner/teb_local_planner_ros.h>
 
 #include <tf_conversions/tf_eigen.h>
@@ -52,6 +53,8 @@
 #include "g2o/core/optimization_algorithm_levenberg.h"
 #include "g2o/solvers/csparse/linear_solver_csparse.h"
 #include "g2o/solvers/cholmod/linear_solver_cholmod.h"
+#include "ros/time.h"
+#include "teb_local_planner/TebLocalPlannerReconfigureConfig.h"
 
 
 // register this planner as a BaseLocalPlanner plugin
@@ -59,7 +62,9 @@ PLUGINLIB_EXPORT_CLASS(teb_local_planner::TebLocalPlannerROS, nav_core::BaseLoca
 
 namespace teb_local_planner
 {
-  
+
+ros::Publisher debug_control_pose_pub;
+ros::Publisher debug_interpolated_path_pub;
 
 TebLocalPlannerROS::TebLocalPlannerROS() : costmap_ros_(NULL), tf_(NULL), costmap_model_(NULL),
                                            costmap_converter_loader_("costmap_converter", "costmap_converter::BaseCostmapToPolygons"),
@@ -170,6 +175,9 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     // setup callback for custom via-points
     via_points_sub_ = nh.subscribe("via_points", 1, &TebLocalPlannerROS::customViaPointsCB, this);
     
+    debug_control_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_control_pose", 1);
+    debug_interpolated_path_pub = nh.advertise<geometry_msgs::PoseArray>("debug_interpolated_path", 1);
+
     // initialize failure detector
     ros::NodeHandle nh_move_base("~");
     double controller_frequency = 5;
@@ -210,7 +218,6 @@ bool TebLocalPlannerROS::setPlan(const std::vector<geometry_msgs::PoseStamped>& 
   
   return true;
 }
-
 
 bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 {
@@ -363,21 +370,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     return false;
   }
 
-  // Get the velocity command for this sampling interval
-  if (!planner_->getVelocityCommand(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.trajectory.control_look_ahead_poses))
-  {
-    visualize(visualization_failure_);
-    planner_->clearPlanner();
-    ROS_WARN("TebLocalPlannerROS: velocity command invalid. Resetting planner...");
-    ++no_infeasible_plans_; // increase number of infeasible solutions in a row
-    time_last_infeasible_plan_ = ros::Time::now();
-    last_cmd_ = cmd_vel;
-    return false;
-  }
-  
-  // Saturate velocity, if the optimization results violates the constraints (could be possible due to soft constraints).
-  saturateVelocity(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.robot.max_vel_x, cfg_.robot.max_vel_y,
-                   cfg_.robot.max_vel_theta, cfg_.robot.max_vel_x_backwards);
+  getVelocityCommand(cmd_vel);
 
   // convert rot-vel to steering angle if desired (carlike robot).
   // The min_turning_radius is allowed to be slighly smaller since it is a soft-constraint
@@ -406,6 +399,215 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   
   // Now visualize everything    
   visualize(visualization_);
+  return true;
+}
+
+PoseSE2 slerp_line(const PoseSE2& p1, const PoseSE2& p2, double fraction)
+{
+  double dt = 1.0;
+  PoseSE2 new_pos;
+  Eigen::Vector2d deltaS = p2.position() - p1.position();
+  double vx = deltaS.norm() / dt;
+  double omega = g2o::normalize_theta(p2.theta() - p1.theta());
+
+  new_pos.x() = p1.x() + (vx * cos(p1.theta())) * dt * fraction;
+  new_pos.y() = p1.y() + (vx * sin(p1.theta())) * dt * fraction;
+  new_pos.theta() = p1.theta() + omega * dt * fraction;
+  return new_pos;
+}
+
+PoseSE2 slerp_arc(const PoseSE2& p1, const PoseSE2& p2, double bearing, double fraction)
+{
+  Eigen::Vector2d pos1 = p1.position();
+  Eigen::Vector2d pos2 = p2.position();
+  double distance = (pos2 - pos1).norm();
+  double radius = distance / (2 * sin(bearing));
+  double angle = g2o::normalize_theta(2 * bearing) * fraction;
+  PoseSE2 result;
+  Eigen::Vector2d center = pos1 + radius * Eigen::Vector2d(-sin(p1.theta()), cos(p1.theta()));
+  Eigen::Affine2d rot_affine = Eigen::Affine2d::Identity();
+  rot_affine.rotate(angle);
+  Eigen::Matrix2d rot_matrix = rot_affine.matrix().block(0, 0, 2, 2);
+  result.position() = rot_matrix * (pos1 - center) + center;
+  result.theta() = p1.theta() + angle;
+  return result;
+}
+
+PoseSE2 slerp_pose(const PoseSE2& p1, const PoseSE2& p2, double fraction)
+{
+  Eigen::Vector2d displacement = p2.position() - p1.position();
+  double bearing = g2o::normalize_theta(atan2(displacement[1], displacement[0]) - p1.theta());
+  if (fabs(bearing) < 1e-4)
+  {
+    return slerp_line(p1, p2, fraction);
+  }
+  else
+  {
+    return slerp_arc(p1, p2, bearing, fraction);
+  }
+}
+PoseSE2 interpolatePath(const TimedElasticBand& teb, double seconds)
+{
+  double cumulative_time = 0.0;
+  double cur_time_diff;
+  int i;
+
+  for (i = 0; i < teb.sizeTimeDiffs(); ++i)
+  {
+    cur_time_diff = teb.TimeDiff(i);
+    if (cumulative_time <= seconds && seconds < cumulative_time + cur_time_diff)
+    {
+      break;
+    }
+    cumulative_time += cur_time_diff;
+  }
+  if (i < teb.sizeTimeDiffs())
+  {
+    double fraction = (seconds - cumulative_time) / cur_time_diff;
+    return slerp_pose(teb.Pose(i), teb.Pose(i+1), fraction);
+  }
+  else
+  {
+    return teb.BackPose();
+  }
+}
+
+double findRobotTimeInPlan(const TimedElasticBand& teb, const PoseSE2& robot_pose, double start_time, double end_time, double dt)
+{
+  double min_dist = std::numeric_limits<double>::max();
+  double time_with_min_dist;
+
+  for (double t = start_time; t <= end_time; t += dt)
+  {
+    PoseSE2 cur_pose = interpolatePath(teb, t);
+    double cur_dist = (robot_pose.position() - cur_pose.position()).norm();
+    if (min_dist > cur_dist)
+    {
+      min_dist = cur_dist;
+      time_with_min_dist = t;
+    }
+  }
+  return time_with_min_dist;
+}
+
+void TebLocalPlannerROS::visualizeInterpolatedPath(double start_time, double end_time, double dt)
+{
+  geometry_msgs::PoseArray msg;
+  msg.header.stamp = ros::Time::now();
+  msg.header.frame_id = "odom";
+
+  auto teb = planner_->getTeb();
+  if (teb != nullptr)
+  {
+    for (double t = start_time; t <= end_time; t += dt)
+    {
+      PoseSE2 cur_pose = interpolatePath(*teb, t);
+      geometry_msgs::Pose pose_msg;
+      cur_pose.toPoseMsg(pose_msg);
+      msg.poses.push_back(pose_msg);
+    }
+  }
+  debug_interpolated_path_pub.publish(msg);
+}
+
+/**
+ * Implementation of a control law for differential drive robots based on the course
+ * "Control of Mobile Robots" by Dr. Magnus Egerstedt at the Georgia Institute of Technology,
+ * Section 7.4, "A Clever Trick".
+ * Given a desired velocity vector for the robot at the current time, this control law can
+ * directly compute a twist (vx, omega) that will result in a "control point" moving along
+ * that velocity vector. The control point is an point chosen a short distance in front
+ * of the robot's axis of rotation.
+ */
+bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
+{
+  auto teb = planner_->getTeb();
+  if (teb == nullptr || teb->sizePoses() < 1)
+  {
+    cmd_vel.linear.x = cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = 0.0;
+    return false;
+  }
+
+  // Get robot pose
+  tf::Stamped<tf::Pose> robot_pose_tf;
+  costmap_ros_->getRobotPose(robot_pose_tf);
+  PoseSE2 robot_pose(robot_pose_tf);
+
+  // First, we must convert the plan (series of poses & timediffs) into the vector from the robot
+  // to a "carrot pose" a short amount of time ahead of the robot on the plan.
+  double dt = 0.4;
+  Eigen::Vector2d delta_carrot;
+  PoseSE2 carrot_pose;
+  double robot_time = findRobotTimeInPlan(*teb, robot_pose, 0.0, 6.0, 0.01);
+  bool is_target_at_goal = false;
+  // This loop will iterate only if the carrot pose is too close to the robot, in which case,
+  // we increase dt until the pose is meaningfully far away or we're at the end of the plan.
+  for (;;)
+  {
+    carrot_pose = interpolatePath(*teb, robot_time + dt);
+    delta_carrot = carrot_pose.position() - robot_pose.position();
+    if (delta_carrot.norm() > 0.04)
+      break;
+    if (carrot_pose.position() == teb->BackPose().position())
+    {
+      is_target_at_goal = true;
+      break;
+    }
+    dt += 0.1;
+  }
+
+  {
+    // Just debug visualization:
+    geometry_msgs::PoseStamped debug_pose;
+    debug_pose.header.stamp = ros::Time::now();
+    debug_pose.header.frame_id = "odom";
+    carrot_pose.toPoseMsg(debug_pose.pose);
+    debug_control_pose_pub.publish(debug_pose);
+    visualizeInterpolatedPath(0.0, 6.0, 0.01);
+  }
+
+  // When we're at the goal position, switch to simple "turn-in-place P-controller" to get
+  // oriented with the goal.
+  if (is_target_at_goal && delta_carrot.norm() < 0.03)
+  {
+    cmd_vel.linear.x = 0.0;
+    double delta_theta = g2o::normalize_theta(carrot_pose.theta() - robot_pose.theta());
+    if (fabs(delta_theta) > cfg_.goal_tolerance.yaw_goal_tolerance)
+      cmd_vel.angular.z = g2o::sign(delta_theta) * std::max((double)fabs(delta_theta), 0.06);
+    else
+      cmd_vel.angular.z = 0.0;
+  }
+  else
+  {
+    // Normal case. Use the main control law.
+    Eigen::Vector2d targetVel = delta_carrot / dt;
+
+    // In the GA Tech class, the control point displacement is a fixed parameter l. But, since the
+    // distance to the carrot pose is variable, and it will not work if the carrot is behind the
+    // control point, we'll always use half-the distance to the carrot pose as our displacement.
+    double ctrl_point_displacement = delta_carrot.norm() / 2.0;
+
+    // If carrot pose is oriented oppositely from direction of travel required to reach it, then
+    // the plan is calling for backward travel. So control point must be behind center of bot.
+    double bearing = atan2(delta_carrot[1], delta_carrot[0]);
+    if (fabs(g2o::normalize_theta(carrot_pose.theta() - bearing)) > M_PI/2)
+    {
+      ctrl_point_displacement *= -1.0;
+    }
+
+    Eigen::Rotation2D<double> R(-robot_pose.theta());
+    Eigen::Matrix2d ctrl_point_matrix;
+    ctrl_point_matrix << 1, 0, 0, 1/ctrl_point_displacement;
+    Eigen::Vector2d cmd = ctrl_point_matrix * R * targetVel;
+    cmd_vel.linear.x = cmd[0];
+    cmd_vel.angular.z = cmd[1];
+  }
+
+  // Saturate velocity, if the optimization results violates the constraints (could be possible due to soft constraints).
+  saturateVelocity(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.robot.max_vel_x, cfg_.robot.max_vel_y,
+                   cfg_.robot.max_vel_theta, cfg_.robot.max_vel_x_backwards);
+
   return true;
 }
 
