@@ -125,6 +125,10 @@ public:
     */
   bool computeVelocityCommands(geometry_msgs::Twist& cmd_vel);
 
+  void visualizeInterpolatedPath(double start_time, double end_time, double dt);
+
+  bool getVelocityCommand(geometry_msgs::Twist& cmd_vel);
+
   /**
     * @brief  Check if the goal pose has been achieved
     * 
@@ -347,7 +351,7 @@ protected:
   void configureBackupModes(std::vector<geometry_msgs::PoseStamped>& transformed_plan,  int& goal_idx);
 
   void visualize(TebVisualizationPtr visualization);
-  
+
 private:
   // Definition of member variables
 
@@ -409,5 +413,3 @@ public:
 }; // end namespace teb_local_planner
 
 #endif // TEB_LOCAL_PLANNER_ROS_H_
-
-
