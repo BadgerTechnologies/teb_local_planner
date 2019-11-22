@@ -144,8 +144,8 @@ public:
             for (std::size_t l=0; l<obstacles->size(); ++l) // iterate all obstacles
             {
                 cplx obst_l = obstacles->at(l)->getCentroidCplx();
-                cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
-                //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
+                //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
+                cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
 
                 // denum contains product with all obstacles exepct j==l
                 cplx Al = f0;
@@ -157,9 +157,9 @@ public:
                     cplx diff = obst_l - obst_j;
                     //if (diff.real()!=0 || diff.imag()!=0)
                     if (std::norm(diff) < 0.05 * 0.05) // skip really close obstacles
-                        continue;
-                     else
                         Al /= diff;
+                     else
+                        continue;
                 }
                 if (z1-obst_l == cplx(0, 0))
                     continue;
