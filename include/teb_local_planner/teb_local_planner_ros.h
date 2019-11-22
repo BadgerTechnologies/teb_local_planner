@@ -157,6 +157,13 @@ public:
                                    geometry_msgs::TwistStamped &cmd_vel, std::string &message);
 
   /**
+    * @brief Generate a twist from the most recent plan and the robot's position. Does not update the plan.
+    * @param cmd_vel Will be filled with the velocity command to be passed to the robot base
+    * @return True if a valid trajectory was found, false otherwise
+    */
+  bool getVelocityCommand(geometry_msgs::TwistStamped& cmd_vel);
+
+  /**
     * @brief  Check if the goal pose has been achieved
     * 
     * The actual check is performed in computeVelocityCommands(). 
@@ -389,7 +396,7 @@ protected:
   void configureBackupModes(std::vector<geometry_msgs::PoseStamped>& transformed_plan,  int& goal_idx);
 
   void visualize(TebVisualizationPtr visualization);
-  
+
 private:
   // Definition of member variables
 
@@ -440,6 +447,8 @@ private:
   
   std::string global_frame_; //!< The frame in which the controller will run
   std::string robot_base_frame_; //!< Used as the base frame id of the robot
+  ros::Publisher debug_control_pose_pub_;
+
     
   // flags
   bool initialized_; //!< Keeps track about the correct initialization of this class
