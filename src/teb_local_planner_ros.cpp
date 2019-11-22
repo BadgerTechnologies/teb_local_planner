@@ -512,7 +512,7 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
 
   // First, we must convert the plan (series of poses & timediffs) into the vector from the robot
   // to a "carrot pose" a short amount of time ahead of the robot on the plan.
-  double dt = 0.4;
+  double dt = cfg_.control.carrot_dt;
   Eigen::Vector2d delta_carrot;
   PoseSE2 carrot_pose;
   double robot_time = findRobotTimeInPlan(*teb, robot_pose, 0.0, 6.0, 0.01);
@@ -523,7 +523,7 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
   {
     carrot_pose = interpolatePath(*teb, robot_time + dt);
     delta_carrot = carrot_pose.position() - robot_pose.position();
-    if (delta_carrot.norm() > 0.04)
+    if (delta_carrot.norm() > cfg_.control.carrot_min_dist)
       break;
     if (carrot_pose.position() == teb->BackPose().position())
     {
@@ -544,14 +544,21 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
 
   // When we're at the goal position, switch to simple "turn-in-place P-controller" to get
   // oriented with the goal.
-  if (is_target_at_goal && delta_carrot.norm() < 0.03)
+  if (is_target_at_goal && delta_carrot.norm() < std::min(cfg_.control.turn_in_place_goal_dist,
+                                                          cfg_.goal_tolerance.xy_goal_tolerance))
   {
     cmd_vel.linear.x = 0.0;
     double delta_theta = g2o::normalize_theta(carrot_pose.theta() - robot_pose.theta());
     if (fabs(delta_theta) > cfg_.goal_tolerance.yaw_goal_tolerance)
-      cmd_vel.angular.z = g2o::sign(delta_theta) * std::max((double)fabs(delta_theta), 0.06);
+    {
+      cmd_vel.angular.z = cfg_.control.turn_in_place_Kp
+          * g2o::sign(delta_theta)
+          * std::max((double)fabs(delta_theta), cfg_.control.turn_in_place_min_vel_theta);
+    }
     else
+    {
       cmd_vel.angular.z = 0.0;
+    }
   }
   else
   {
