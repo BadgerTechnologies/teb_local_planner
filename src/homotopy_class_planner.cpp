@@ -234,9 +234,10 @@ void HomotopyClassPlanner::renewAndAnalyzeOldTebs(bool delete_detours)
   if (has_best_teb)
   {
     std::iter_swap(tebs_.begin(), it_best_teb);  // Putting the last best teb at the beginning of the container
-    addEquivalenceClassIfNew(calculateEquivalenceClass(best_teb_->teb().poses().begin(),
+    best_teb_eq_class_ = calculateEquivalenceClass(best_teb_->teb().poses().begin(),
       best_teb_->teb().poses().end(), getCplxFromVertexPosePtr , obstacles_,
-      best_teb_->teb().timediffs().begin(), best_teb_->teb().timediffs().end()));
+      best_teb_->teb().timediffs().begin(), best_teb_->teb().timediffs().end());
+    addEquivalenceClassIfNew(best_teb_eq_class_);
   }
   // Collect h-signatures for all existing TEBs and store them together with the corresponding iterator / pointer:
 //   typedef std::list< std::pair<TebOptPlannerContainer::iterator, std::complex<long double> > > TebCandidateType;
@@ -251,10 +252,6 @@ void HomotopyClassPlanner::renewAndAnalyzeOldTebs(bool delete_detours)
                                                                       it_teb->get()->teb().timediffs().begin(), it_teb->get()->teb().timediffs().end());
 
 //     teb_candidates.push_back(std::make_pair(it_teb,H));
-    if (*it_teb == best_teb_)
-    {
-      best_teb_eq_class_ = equivalence_class;
-    }
 
     // WORKAROUND until the commented code below works
     // Here we do not compare cost values. Just first come first serve...
