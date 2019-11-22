@@ -843,29 +843,26 @@ double TebLocalPlannerROS::estimateLocalGoalOrientation(const std::vector<geomet
       
 void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega, double max_vel_x, double max_vel_y, double max_vel_theta, double max_vel_x_backwards) const
 {
-  // Limit translational velocity for forward driving
-  if (vx > max_vel_x)
-    vx = max_vel_x;
-  
-  // limit strafing velocity
-  if (vy > max_vel_y)
-    vy = max_vel_y;
-  else if (vy < -max_vel_y)
-    vy = -max_vel_y;
-  
-  // Limit angular velocity
-  if (omega > max_vel_theta)
-    omega = max_vel_theta;
-  else if (omega < -max_vel_theta)
-    omega = -max_vel_theta;
-  
-  // Limit backwards velocity
+  double scale = 1.0;
+
   if (max_vel_x_backwards<=0)
   {
     ROS_WARN_ONCE("TebLocalPlannerROS(): Do not choose max_vel_x_backwards to be <=0. Disable backwards driving by increasing the optimization weight for penalyzing backwards driving.");
   }
-  else if (vx < -max_vel_x_backwards)
-    vx = -max_vel_x_backwards;
+
+  // Find a scale factor that satisfies all limits
+  if (vx > max_vel_x)
+    scale = std::min(scale, max_vel_x / vx);
+  if (max_vel_x_backwards > 1e-3 && vx < -max_vel_x_backwards)
+    scale = std::min(scale, -max_vel_x_backwards / vx);
+  if (max_vel_y > 1e-3 && std::abs(vy) > std::abs(max_vel_y))
+    scale = std::min(scale, std::abs(max_vel_y) / std::abs(vy));
+  if (std::abs(omega) > max_vel_theta)
+    scale = std::min(scale, max_vel_theta / std::abs(omega));
+
+  vx *= scale;
+  vy *= scale;
+  omega *= scale;
 }
      
      
