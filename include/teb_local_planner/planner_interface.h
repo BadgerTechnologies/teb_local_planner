@@ -49,14 +49,13 @@
 // this package
 #include <teb_local_planner/pose_se2.h>
 #include <teb_local_planner/visualization.h>
+#include <teb_local_planner/timed_elastic_band.h>
 
 // messages
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 
-
-#include <teb_local_planner/timed_elastic_band.h>
 
 namespace teb_local_planner
 {
