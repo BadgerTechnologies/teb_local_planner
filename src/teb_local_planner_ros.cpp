@@ -37,6 +37,7 @@
  *********************************************************************/
 
 #include <limits>
+#include <ros/time.h>
 #include <teb_local_planner/teb_local_planner_ros.h>
 
 #include <tf_conversions/tf_eigen.h>
@@ -53,7 +54,6 @@
 #include "g2o/core/optimization_algorithm_levenberg.h"
 #include "g2o/solvers/csparse/linear_solver_csparse.h"
 #include "g2o/solvers/cholmod/linear_solver_cholmod.h"
-#include "ros/time.h"
 #include "teb_local_planner/TebLocalPlannerReconfigureConfig.h"
 
 
@@ -63,7 +63,6 @@ PLUGINLIB_EXPORT_CLASS(teb_local_planner::TebLocalPlannerROS, nav_core::BaseLoca
 namespace teb_local_planner
 {
 
-ros::Publisher debug_control_pose_pub;
 ros::Publisher debug_interpolated_path_pub;
 
 TebLocalPlannerROS::TebLocalPlannerROS() : costmap_ros_(NULL), tf_(NULL), costmap_model_(NULL),
@@ -175,7 +174,7 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     // setup callback for custom via-points
     via_points_sub_ = nh.subscribe("via_points", 1, &TebLocalPlannerROS::customViaPointsCB, this);
     
-    debug_control_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_control_pose", 1);
+    debug_control_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("debug_control_pose", 1);
     debug_interpolated_path_pub = nh.advertise<geometry_msgs::PoseArray>("debug_interpolated_path", 1);
 
     // initialize failure detector
@@ -404,18 +403,16 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 
 PoseSE2 slerp_line(const PoseSE2& p1, const PoseSE2& p2, double fraction)
 {
-  double dt = 1.0;
   PoseSE2 new_pos;
-  Eigen::Vector2d deltaS = p2.position() - p1.position();
-  double vx = deltaS.norm() / dt;
-  double omega = g2o::normalize_theta(p2.theta() - p1.theta());
-
-  new_pos.x() = p1.x() + (vx * cos(p1.theta())) * dt * fraction;
-  new_pos.y() = p1.y() + (vx * sin(p1.theta())) * dt * fraction;
-  new_pos.theta() = p1.theta() + omega * dt * fraction;
+  Eigen::Vector2d deltaPos = p2.position() - p1.position();
+  new_pos.position() = p1.position() + (deltaPos * fraction);
+  double deltaTheta = p2.theta() - p1.theta(); // Doesn't need to be normalized yet
+  new_pos.theta() = g2o::normalize_theta(p1.theta() + (deltaTheta * fraction));
   return new_pos;
 }
 
+// Don't call this directly, as it does not protect from division by zero.
+// Call slerp_pose() instead.
 PoseSE2 slerp_arc(const PoseSE2& p1, const PoseSE2& p2, double bearing, double fraction)
 {
   Eigen::Vector2d pos1 = p1.position();
@@ -437,7 +434,7 @@ PoseSE2 slerp_pose(const PoseSE2& p1, const PoseSE2& p2, double fraction)
 {
   Eigen::Vector2d displacement = p2.position() - p1.position();
   double bearing = g2o::normalize_theta(atan2(displacement[1], displacement[0]) - p1.theta());
-  if (fabs(bearing) < 1e-4)
+  if (std::abs(bearing) < 1e-4 || std::abs(bearing - M_PI/2) < 1e-4)
   {
     return slerp_line(p1, p2, fraction);
   }
@@ -455,7 +452,7 @@ PoseSE2 interpolatePath(const TimedElasticBand& teb, double seconds)
   for (i = 0; i < teb.sizeTimeDiffs(); ++i)
   {
     cur_time_diff = teb.TimeDiff(i);
-    if (cumulative_time <= seconds && seconds < cumulative_time + cur_time_diff)
+    if (seconds < cumulative_time + cur_time_diff)
     {
       break;
     }
@@ -475,7 +472,7 @@ PoseSE2 interpolatePath(const TimedElasticBand& teb, double seconds)
 double findRobotTimeInPlan(const TimedElasticBand& teb, const PoseSE2& robot_pose, double start_time, double end_time, double dt)
 {
   double min_dist = std::numeric_limits<double>::max();
-  double time_with_min_dist;
+  double time_with_min_dist = start_time;
 
   for (double t = start_time; t <= end_time; t += dt)
   {
@@ -563,7 +560,7 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
     debug_pose.header.stamp = ros::Time::now();
     debug_pose.header.frame_id = "odom";
     carrot_pose.toPoseMsg(debug_pose.pose);
-    debug_control_pose_pub.publish(debug_pose);
+    debug_control_pose_pub_.publish(debug_pose);
     visualizeInterpolatedPath(0.0, 6.0, 0.01);
   }
 
@@ -605,6 +602,7 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
 
     Eigen::Rotation2D<double> R(-robot_pose.theta());
     Eigen::Matrix2d ctrl_point_matrix;
+    // ctrl_point_displacement can't be zero here cuz would have taken the is_target_at_goal case
     ctrl_point_matrix << 1, 0, 0, 1/ctrl_point_displacement;
     Eigen::Vector2d cmd = ctrl_point_matrix * R * targetVel;
     cmd_vel.linear.x = cmd[0];
