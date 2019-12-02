@@ -402,6 +402,8 @@ private:
   
   std::string global_frame_; //!< The frame in which the controller will run
   std::string robot_base_frame_; //!< Used as the base frame id of the robot
+  ros::Publisher debug_control_pose_pub_;
+
     
   // flags
   bool initialized_; //!< Keeps track about the correct initialization of this class
@@ -413,3 +415,5 @@ public:
 }; // end namespace teb_local_planner
 
 #endif // TEB_LOCAL_PLANNER_ROS_H_
+
+
