@@ -98,7 +98,7 @@ public:
     {
         if (obstacles->empty())
         {
-            hsignature_ = std::complex<double>(0,0);
+            hsignature_ = cplx(0,0);
             return;
         }
 
@@ -114,7 +114,6 @@ public:
 
         std::advance(path_end, -1); // reduce path_end by 1 (since we check line segments between those path points
 
-        typedef std::complex<long double> cplx;
         // guess map size (only a really really coarse guess is required
         // use distance from start to goal as distance to each direction
         // TODO: one could move the map determination outside this function, since it remains constant for the whole planning interval
@@ -137,8 +136,6 @@ public:
 
         hsignature_ = 0; // reset local signature
 
-        std::vector<double> imag_proposals(5);
-
         // iterate path
         while(path_start != path_end)
         {
@@ -148,8 +145,8 @@ public:
             for (std::size_t l=0; l<obstacles->size(); ++l) // iterate all obstacles
             {
                 cplx obst_l = obstacles->at(l)->getCentroidCplx();
-                //cplx f0 = (long double) prescaler * std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
-                cplx f0 = (long double) cfg_->hcp.h_signature_prescaler * (long double)a*(obst_l-map_bottom_left) * (long double)b*(obst_l-map_top_right);
+                //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
+                cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
 
                 // denum contains product with all obstacles exepct j==l
                 cplx Al = f0;
@@ -160,27 +157,14 @@ public:
                     cplx obst_j = obstacles->at(j)->getCentroidCplx();
                     cplx diff = obst_l - obst_j;
                     //if (diff.real()!=0 || diff.imag()!=0)
-                    if (std::abs(diff)<0.05) // skip really close obstacles
-                        continue;
-                     else
+                    if (std::norm(diff) < 0.05 * 0.05) // skip really close obstacles
                         Al /= diff;
+                     else
+                        continue;
                 }
-                // compute log value
-                double diff2 = std::abs(z2-obst_l);
-                double diff1 = std::abs(z1-obst_l);
-                if (diff2 == 0 || diff1 == 0)
+                if (z1-obst_l == cplx(0, 0))
                     continue;
-                double log_real = std::log(diff2)-std::log(diff1);
-                // complex ln has more than one solution -> choose minimum abs angle -> paper
-                double arg_diff = std::arg(z2-obst_l)-std::arg(z1-obst_l);
-                imag_proposals.at(0) = arg_diff;
-                imag_proposals.at(1) = arg_diff+2*M_PI;
-                imag_proposals.at(2) = arg_diff-2*M_PI;
-                imag_proposals.at(3) = arg_diff+4*M_PI;
-                imag_proposals.at(4) = arg_diff-4*M_PI;
-                double log_imag = *std::min_element(imag_proposals.begin(),imag_proposals.end(),smaller_than_abs);
-                cplx log_value(log_real,log_imag);
-                //cplx log_value = std::log(z2-obst_l)-std::log(z1-obst_l); // the principal solution doesn't seem to work
+                cplx log_value(std::log((z2-obst_l) / (z1-obst_l)));
                 hsignature_ += Al*log_value;
             }
             ++path_start;
@@ -230,13 +214,13 @@ public:
      * @brief Get the current value of the h-signature (read-only)
      * @return h-signature in complex-number format
      */
-     const std::complex<long double>& value() const {return hsignature_;}
+     const cplx& value() const {return hsignature_;}
 
 
 private:
 
     const TebConfig* cfg_;
-    std::complex<long double> hsignature_;
+    cplx hsignature_;
 };
 
 
@@ -299,8 +283,8 @@ public:
         // iterate path
         for (path_iter = path_start, timediff_iter = timediff_start.get(); path_iter != path_end; ++path_iter, ++timediff_iter)
         {
-          std::complex<long double> z1 = fun_cplx_point(*path_iter);
-          std::complex<long double> z2 = fun_cplx_point(*boost::next(path_iter));
+          cplx z1 = fun_cplx_point(*path_iter);
+          cplx z2 = fun_cplx_point(*boost::next(path_iter));
           Eigen::Vector2d pose (z1.real(), z1.imag());
           Eigen::Vector2d nextpose (z2.real(), z2.imag());
 
