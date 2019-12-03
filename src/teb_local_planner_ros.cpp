@@ -36,6 +36,7 @@
  * Author: Christoph Rösmann
  *********************************************************************/
 
+#include <cassert>
 #include <limits>
 #include <ros/time.h>
 #include <teb_local_planner/teb_local_planner_ros.h>
@@ -401,7 +402,7 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   return true;
 }
 
-PoseSE2 slerp_line(const PoseSE2& p1, const PoseSE2& p2, double fraction)
+static PoseSE2 slerp_line(const PoseSE2& p1, const PoseSE2& p2, double fraction)
 {
   PoseSE2 new_pos;
   Eigen::Vector2d deltaPos = p2.position() - p1.position();
@@ -413,7 +414,7 @@ PoseSE2 slerp_line(const PoseSE2& p1, const PoseSE2& p2, double fraction)
 
 // Don't call this directly, as it does not protect from division by zero.
 // Call slerp_pose() instead.
-PoseSE2 slerp_arc(const PoseSE2& p1, const PoseSE2& p2, double bearing, double fraction)
+static PoseSE2 slerp_arc(const PoseSE2& p1, const PoseSE2& p2, double bearing, double fraction)
 {
   Eigen::Vector2d pos1 = p1.position();
   Eigen::Vector2d pos2 = p2.position();
@@ -1062,10 +1063,12 @@ void TebLocalPlannerROS::saturateVelocity(double& vx, double& vy, double& omega,
     scale = std::min(scale, max_vel_x / vx);
   if (max_vel_x_backwards > 1e-3 && vx < -max_vel_x_backwards)
     scale = std::min(scale, -max_vel_x_backwards / vx);
-  if (max_vel_y > 1e-3 && std::abs(vy) > std::abs(max_vel_y))
-    scale = std::min(scale, std::abs(max_vel_y) / std::abs(vy));
+  if (max_vel_y > 1e-3 && std::abs(vy) > max_vel_y)
+    scale = std::min(scale, max_vel_y / std::abs(vy));
   if (std::abs(omega) > max_vel_theta)
     scale = std::min(scale, max_vel_theta / std::abs(omega));
+
+  assert(0.0 < scale && scale < 1.0 + 1e-6);
 
   vx *= scale;
   vy *= scale;
