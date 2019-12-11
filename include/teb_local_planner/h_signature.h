@@ -134,6 +134,32 @@ public:
             map_top_right = start + delta + normal;
         }
 
+        // Pre-calculate the A vector, no need to re-calculate for each path pose
+        std::vector<cplx> A_vector;
+        A_vector.resize(obstacles->size());
+        for (std::size_t l=0; l<obstacles->size(); ++l) // iterate all obstacles
+        {
+            cplx obst_l = obstacles->at(l)->getCentroidCplx();
+            //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
+            cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
+
+            // denum contains product with all obstacles exepct j==l
+            cplx Al = f0;
+            for (std::size_t j=0; j<obstacles->size(); ++j)
+            {
+                if (j==l)
+                    continue;
+                cplx obst_j = obstacles->at(j)->getCentroidCplx();
+                cplx diff = obst_l - obst_j;
+                //if (diff.real()!=0 || diff.imag()!=0)
+                if (std::norm(diff) < 0.05 * 0.05) // skip really close obstacles
+                    Al /= diff;
+                 else
+                    continue;
+            }
+            A_vector[l] = Al;
+        }
+
         hsignature_ = 0; // reset local signature
 
         // iterate path
@@ -145,27 +171,10 @@ public:
             for (std::size_t l=0; l<obstacles->size(); ++l) // iterate all obstacles
             {
                 cplx obst_l = obstacles->at(l)->getCentroidCplx();
-                //cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler* std::pow(obst_l-map_bottom_left,a) * std::pow(obst_l-map_top_right,b);
-                cplx f0 = (cplx::value_type) cfg_->hcp.h_signature_prescaler * (cplx::value_type)a*(obst_l-map_bottom_left) * (cplx::value_type)b*(obst_l-map_top_right);
-
-                // denum contains product with all obstacles exepct j==l
-                cplx Al = f0;
-                for (std::size_t j=0; j<obstacles->size(); ++j)
-                {
-                    if (j==l)
-                        continue;
-                    cplx obst_j = obstacles->at(j)->getCentroidCplx();
-                    cplx diff = obst_l - obst_j;
-                    //if (diff.real()!=0 || diff.imag()!=0)
-                    if (std::norm(diff) < 0.05 * 0.05) // skip really close obstacles
-                        Al /= diff;
-                     else
-                        continue;
-                }
                 if (z1-obst_l == cplx(0, 0))
                     continue;
                 cplx log_value(std::log((z2-obst_l) / (z1-obst_l)));
-                hsignature_ += Al*log_value;
+                hsignature_ += A_vector[l]*log_value;
             }
             ++path_start;
         }
