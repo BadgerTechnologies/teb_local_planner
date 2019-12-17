@@ -111,6 +111,8 @@ public:
     ROS_ASSERT_MSG(std::isfinite(_error[0]), "EdgeObstacle::computeError() _error[0]=%f\n",_error[0]);
   }
 
+  virtual void linearizeOplus();
+
 protected:
   costmap_3d::Costmap3DQueryPtr costmap_3d_query_;
 

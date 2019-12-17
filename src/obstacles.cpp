@@ -206,6 +206,43 @@ void PolygonObstacle::toPolygonMsg(geometry_msgs::Polygon& polygon)
 
 
 
+void Edge3DCostmap::linearizeOplus()
+{
+  //Xi - estimate the jacobian numerically
+  VertexPose* vi = static_cast<VertexPose*>(_vertices[0]);
+
+  if (vi->fixed())
+    return;
+
+#ifdef G2O_OPENMP
+  vi->lockQuadraticForm();
+#endif
+
+  const double delta = 1e-5;
+  const double scalar = 1.0 / (2*delta);
+  ErrorVector error1;
+  ErrorVector errorBeforeNumeric = _error;
+
+  double add_vi[VertexPose::Dimension];
+  std::fill(add_vi, add_vi + VertexPose::Dimension, 0.0);
+  // add small step along the unit vector in each dimension
+  for (int d = 0; d < VertexPose::Dimension; ++d) {
+    vi->push();
+    add_vi[d] = delta;
+    vi->oplus(add_vi);
+    computeError();
+    error1 = _error;
+    vi->pop();
+    vi->push();
+    add_vi[d] = -delta;
+    vi->oplus(add_vi);
+    computeError();
+    vi->pop();
+    add_vi[d] = 0.0;
+
+    _jacobianOplusXi.col(d) = scalar * (error1 - _error);
+  } // end dimension
+}
 
 
 
