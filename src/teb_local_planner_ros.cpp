@@ -347,6 +347,55 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   // Now perform the actual planning
 //   bool success = planner_->plan(robot_pose_, robot_goal_, robot_vel_, cfg_.goal_tolerance.free_goal_vel); // straight line init
   bool success = planner_->plan(transformed_plan, &robot_vel_, cfg_.goal_tolerance.free_goal_vel);
+
+  if (costmap_3d_ros_ != nullptr)
+  {
+    static unsigned int last_queries_since_clear = std::numeric_limits<unsigned int>::max();
+    static unsigned int last_cache_hits = 0;
+    static unsigned int last_milli_cache_hits = 0;
+    static unsigned int last_micro_cache_hits = 0;
+    unsigned int queries_since_clear;
+    unsigned int cache_hits_since_clear;
+    unsigned int milli_cache_hits_since_clear;
+    unsigned int micro_cache_hits_since_clear;
+    costmap_3d_ros_->getAssociatedQuery()->gatherStatistics(
+        &queries_since_clear,
+        &cache_hits_since_clear,
+        &milli_cache_hits_since_clear,
+        &micro_cache_hits_since_clear);
+    bool caches_hot = true;
+    if (queries_since_clear < last_queries_since_clear)
+    {
+      // query object was cleared and stats reset
+      last_queries_since_clear = 0;
+      last_cache_hits = 0;
+      last_milli_cache_hits = 0;
+      last_micro_cache_hits = 0;
+      caches_hot = false;
+    }
+    unsigned int queries_this_cycle = queries_since_clear - last_queries_since_clear;
+    unsigned int cache_hits = cache_hits_since_clear - last_cache_hits;
+    unsigned int milli_cache_hits = milli_cache_hits_since_clear - last_milli_cache_hits;
+    unsigned int micro_cache_hits = micro_cache_hits_since_clear - last_micro_cache_hits;
+    double hit_ratio = (double)cache_hits / queries_this_cycle;
+    double milli_hit_ratio = (double)milli_cache_hits / queries_this_cycle;
+    double micro_hit_ratio = (double)micro_cache_hits / queries_this_cycle;
+    ROS_INFO_STREAM("Costmap3DQuery statistics:"
+                    "\n\tcaches hot: " << caches_hot <<
+                    "\n\tqueries since clear: " << queries_since_clear <<
+                    "\n\tqueries this cycle: " << queries_this_cycle <<
+                    "\n\tcache hits: " << cache_hits <<
+                    "\n\tcache hit ratio: " << hit_ratio <<
+                    "\n\tmilli cache hits: " << milli_cache_hits <<
+                    "\n\tmilli cache hit ratio: " << milli_hit_ratio <<
+                    "\n\tmicro cache hits: " << micro_cache_hits <<
+                    "\n\tmicro cache hit ratio: " << micro_hit_ratio);
+    last_queries_since_clear = queries_since_clear;
+    last_cache_hits = cache_hits_since_clear;
+    last_milli_cache_hits = milli_cache_hits_since_clear;
+    last_micro_cache_hits = micro_cache_hits_since_clear;
+  }
+
   if (!success)
   {
     visualize(visualization_failure_);
