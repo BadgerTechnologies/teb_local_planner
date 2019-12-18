@@ -139,8 +139,8 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
       ROS_INFO("Using Costmap3DROS");
       // Override the costmap model with a Costmap3DModel
       costmap_model_ = boost::make_shared<base_local_planner::Costmap3DModel>(*costmap_3d_ros_);
-      // Tell the planner to use a 3D costmap query that tracks the current costmap for obstacles
-      planner_->useCostmap3DQuery(costmap_3d_ros_->getAssociatedQuery());
+      // Tell the planner to use 3D costmap for obstacles
+      planner_->useCostmap3D(costmap_3d_ros_);
     }
 
     //Initialize a costmap to polygon converter
@@ -358,7 +358,12 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     unsigned int cache_hits_since_clear;
     unsigned int milli_cache_hits_since_clear;
     unsigned int micro_cache_hits_since_clear;
-    costmap_3d_ros_->getAssociatedQuery()->gatherStatistics(
+    std::shared_ptr<costmap_3d::Costmap3DQuery> costmap_3d_query_left;
+    costmap_3d_query_left = costmap_3d_ros_->getAssociatedQuery(
+        "package://ant_description/meshes/simpler-robot-split-left.stl");
+//    costmap_3d_query_right = costmap_3d_ros_->getAssociatedQuery(
+//        "package://ant_description/meshes/simpler-robot-split-right.stl");
+    costmap_3d_query_left->gatherStatistics(
         &queries_since_clear,
         &cache_hits_since_clear,
         &milli_cache_hits_since_clear,

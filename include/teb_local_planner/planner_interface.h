@@ -45,7 +45,7 @@
 // ros
 #include <tf/transform_datatypes.h>
 #include <base_local_planner/costmap_model.h>
-#include <costmap_3d/costmap_3d_query.h>
+#include <costmap_3d/costmap_3d_ros.h>
 
 // this package
 #include <teb_local_planner/pose_se2.h>
@@ -210,9 +210,12 @@ public:
   virtual TimedElasticBand* getTeb() = 0;
 
   /**
-   * @brief Enable using Costmap3DQuery distance queries in place of obstacles.
+   * @brief Enable using Costmap3D distance queries in place of obstacles.
+   *
+   * If planners do not support Costmap3D, they do not need to implement this
+   * method.
    */
-  virtual void useCostmap3DQuery(costmap_3d::Costmap3DQueryPtr costmap_3d_query) = 0;
+  virtual void useCostmap3D(costmap_3d::Costmap3DROS* costmap_3d_ros) {}
 };
 
 //! Abbrev. for shared instances of PlannerInterface or it's subclasses 

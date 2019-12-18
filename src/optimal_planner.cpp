@@ -49,10 +49,12 @@ namespace teb_local_planner
 TebOptimalPlanner::TebOptimalPlanner() : cfg_(NULL), obstacles_(NULL), via_points_(NULL), cost_(HUGE_VAL), prefer_rotdir_(RotType::none),
                                          robot_model_(new PointRobotFootprint()), initialized_(false), optimized_(false)
 {    
+  costmap_3d_ros_ = nullptr;
 }
   
 TebOptimalPlanner::TebOptimalPlanner(const TebConfig& cfg, ObstContainer* obstacles, RobotFootprintModelPtr robot_model, TebVisualizationPtr visual, const ViaPointContainer* via_points)
 {    
+  costmap_3d_ros_ = nullptr;
   initialize(cfg, obstacles, robot_model, visual, via_points);
 }
 
@@ -418,7 +420,7 @@ void TebOptimalPlanner::AddEdgesObstacles(double weight_multiplier)
 {
   if (cfg_->optim.weight_obstacle==0 || weight_multiplier==0 || obstacles_==nullptr )
     return; // if weight equals zero skip adding edges!
-  if (costmap_3d_query_)
+  if (costmap_3d_ros_ != nullptr)
     return; // costmap 3d queries disable normal obstacle processing
     
   
@@ -552,7 +554,7 @@ void TebOptimalPlanner::AddEdgesObstaclesLegacy(double weight_multiplier)
 {
   if (cfg_->optim.weight_obstacle==0 || weight_multiplier==0 || obstacles_==nullptr)
     return; // if weight equals zero skip adding edges!
-  if (costmap_3d_query_)
+  if (costmap_3d_ros_ != nullptr)
     return; // costmap 3d queries disable normal obstacle processing
 
   Eigen::Matrix<double,1,1> information; 
@@ -877,7 +879,7 @@ void TebOptimalPlanner::AddEdgesAcceleration()
 
 void TebOptimalPlanner::AddEdges3DCostmap(double weight_multiplier)
 {
-  if (!costmap_3d_query_)
+  if (costmap_3d_ros_ == nullptr)
     return;
 
   Eigen::Matrix<double,2,2> information;
@@ -888,9 +890,20 @@ void TebOptimalPlanner::AddEdges3DCostmap(double weight_multiplier)
     information(1,1) = 0;
   information(0,1) = information(1,0) = 0;
 
+  std::shared_ptr<costmap_3d::Costmap3DQuery> costmap_3d_query_left;
+  std::shared_ptr<costmap_3d::Costmap3DQuery> costmap_3d_query_right;
+  costmap_3d_query_left = costmap_3d_ros_->getAssociatedQuery(
+      "package://ant_description/meshes/simpler-robot-split-left.stl");
+  costmap_3d_query_right = costmap_3d_ros_->getAssociatedQuery(
+      "package://ant_description/meshes/simpler-robot-split-right.stl");
   for (int i=1; i < teb_.sizePoses()-1; ++i)
   {
-    Edge3DCostmap* edge = new Edge3DCostmap(costmap_3d_query_);
+    Edge3DCostmap* edge = new Edge3DCostmap(costmap_3d_query_right);
+    edge->setVertex(0,teb_.PoseVertex(i));
+    edge->setInformation(information);
+    edge->setTebConfig(*cfg_);
+    optimizer_->addEdge(edge);
+    edge = new Edge3DCostmap(costmap_3d_query_left);
     edge->setVertex(0,teb_.PoseVertex(i));
     edge->setInformation(information);
     edge->setTebConfig(*cfg_);
