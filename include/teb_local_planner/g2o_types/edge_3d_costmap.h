@@ -86,7 +86,7 @@ public:
     geometry_msgs::Pose pose_msg;
     vertex_pose->pose().toPoseMsg(pose_msg);
 
-    double dist = costmap_3d_query_->footprintDistance(pose_msg);
+    double dist = costmap_3d_query_->footprintSignedDistance(pose_msg);
 
     // Original obstacle cost.
     _error[0] = penaltyBoundFromBelow(dist, cfg_->obstacles.min_obstacle_dist, cfg_->optim.penalty_epsilon);
