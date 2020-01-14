@@ -125,8 +125,9 @@ public:
 #endif
 
     const double delta = 1e-5;
-    const double scalar = 1.0 / (2*delta);
-    ErrorVector error1;
+    const double scalar = 1.0 / (delta);
+    // calculate the derivative to the base pose each time, reducing total queries
+    computeError();
     ErrorVector errorBeforeNumeric = _error;
 
     double add_vi[VertexPose::Dimension];
@@ -137,17 +138,12 @@ public:
       add_vi[d] = delta;
       vi->oplus(add_vi);
       computeError();
-      error1 = _error;
-      vi->pop();
-      vi->push();
-      add_vi[d] = -delta;
-      vi->oplus(add_vi);
-      computeError();
       vi->pop();
       add_vi[d] = 0.0;
 
-      _jacobianOplusXi.col(d) = scalar * (error1 - _error);
+      _jacobianOplusXi.col(d) = scalar * (_error - errorBeforeNumeric);
     } // end dimension
+    _error = errorBeforeNumeric;
   }
 
 protected:
