@@ -86,18 +86,19 @@ public:
     geometry_msgs::Pose pose_msg;
     vertex_pose->pose().toPoseMsg(pose_msg);
 
-    double dist = costmap_3d_query_->footprintDistance(pose_msg);
+    double dist = costmap_3d_query_->footprintSignedDistance(pose_msg);
 
     // Original obstacle cost.
     _error[0] = penaltyBoundFromBelow(dist, cfg_->obstacles.min_obstacle_dist, cfg_->optim.penalty_epsilon);
 
-    if (cfg_->optim.obstacle_cost_exponent != 1.0 && cfg_->obstacles.min_obstacle_dist > 0.0)
+    if (cfg_->optim.obstacle_cost_exponent != 1.0 && cfg_->obstacles.min_obstacle_dist > 0.0 && dist >= 0.0)
     {
-      // Optional non-linear cost. Note the max cost (before weighting) is
-      // the same as the straight line version and that all other costs are
-      // below the straight line (for positive exponent), so it may be
-      // necessary to increase weight_obstacle and/or the inflation_weight
-      // when using larger exponents.
+      // Optional non-linear cost. Note the cost (before weighting) when the
+      // base is in collision with an obstacle is the same as the straight
+      // line version and that in-between costs are below the straight line
+      // (for positive exponent), so it may be necessary to increase
+      // weight_obstacle and/or the inflation_weight when using larger
+      // exponents.
       _error[0] = cfg_->obstacles.min_obstacle_dist * std::pow(_error[0] / cfg_->obstacles.min_obstacle_dist, cfg_->optim.obstacle_cost_exponent);
     }
 
