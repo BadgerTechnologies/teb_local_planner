@@ -888,6 +888,34 @@ void TebOptimalPlanner::AddEdges3DCostmap(double weight_multiplier)
     information(1,1) = 0;
   information(0,1) = information(1,0) = 0;
 
+  bool add_left = false;
+  bool add_right = false;
+  int first_left_right_pose = 0;
+  int last_left_right_pose = 0;
+  int left_right_skip_count = 1;
+  Eigen::Matrix<double,2,2> left_right_information;
+  // Do not peform obstacle error on left/right edges, only inflatation.
+  // The regular obstacle edge will be left in the graph.
+  left_right_information(0,0) = 0;
+  left_right_information(0,1) = 0;
+  left_right_information(1,0) = 0;
+  if (cfg_->obstacles.left_inflation_dist > cfg_->obstacles.min_obstacle_dist ||
+      cfg_->obstacles.right_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+  {
+    first_left_right_pose = cfg_->obstacles.first_left_right_pose;
+    last_left_right_pose = cfg_->obstacles.last_left_right_pose;
+    left_right_skip_count = cfg_->obstacles.left_right_skip_poses + 1;
+    left_right_information(1,1) = cfg_->optim.weight_left_right_inflation;
+  }
+  if (cfg_->obstacles.left_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+  {
+    add_left = true;
+  }
+  if (cfg_->obstacles.right_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+  {
+    add_right = true;
+  }
+
   for (int i=1; i < teb_.sizePoses()-1; ++i)
   {
     Edge3DCostmap* edge = new Edge3DCostmap(costmap_3d_query_);
@@ -895,6 +923,25 @@ void TebOptimalPlanner::AddEdges3DCostmap(double weight_multiplier)
     edge->setInformation(information);
     edge->setTebConfig(*cfg_);
     optimizer_->addEdge(edge);
+    if (first_left_right_pose <= i && i <= last_left_right_pose && ((i - first_left_right_pose) % left_right_skip_count) == 0)
+    {
+      if (add_left)
+      {
+        edge = new Edge3DCostmap(costmap_3d_query_, Edge3DCostmap::REGION_LEFT);
+        edge->setVertex(0,teb_.PoseVertex(i));
+        edge->setInformation(left_right_information);
+        edge->setTebConfig(*cfg_);
+        optimizer_->addEdge(edge);
+      }
+      if (add_right)
+      {
+        edge = new Edge3DCostmap(costmap_3d_query_, Edge3DCostmap::REGION_RIGHT);
+        edge->setVertex(0,teb_.PoseVertex(i));
+        edge->setInformation(left_right_information);
+        edge->setTebConfig(*cfg_);
+        optimizer_->addEdge(edge);
+      }
+    }
   }
 }
 

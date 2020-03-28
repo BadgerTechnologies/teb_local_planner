@@ -60,24 +60,36 @@ class Edge3DCostmap : public BaseTebUnaryEdge<2, const void *, VertexPose>
 {
 public:
 
+  using Region = costmap_3d::Costmap3DQuery::QueryRegion;
+  static constexpr Region REGION_ALL = costmap_3d::Costmap3DQuery::ALL;
+  static constexpr Region REGION_LEFT = costmap_3d::Costmap3DQuery::LEFT;
+  static constexpr Region REGION_RIGHT = costmap_3d::Costmap3DQuery::RIGHT;
+
   /**
    * @brief Construct edge.
    */
   Edge3DCostmap()
   {
+    region_ = REGION_ALL;
   }
 
   /**
    * @brief Construct edge.
    */
-  Edge3DCostmap(costmap_3d::Costmap3DQueryPtr costmap_3d_query)
+  Edge3DCostmap(costmap_3d::Costmap3DQueryPtr costmap_3d_query, Region region = REGION_ALL)
   {
     costmap_3d_query_ = costmap_3d_query;
+    region_ = region;
   }
 
   void setCostmap3D(costmap_3d::Costmap3DQueryPtr costmap_3d_query)
   {
     costmap_3d_query_ = costmap_3d_query;
+  }
+
+  void setRegion(Region region)
+  {
+    region_ = region;
   }
 
   void computeError()
@@ -86,7 +98,7 @@ public:
     geometry_msgs::Pose pose_msg;
     vertex_pose->pose().toPoseMsg(pose_msg);
 
-    double dist = costmap_3d_query_->footprintSignedDistance(pose_msg);
+    double dist = costmap_3d_query_->footprintSignedDistance(pose_msg, region_);
 
     // Original obstacle cost.
     _error[0] = penaltyBoundFromBelow(dist, cfg_->obstacles.min_obstacle_dist, cfg_->optim.penalty_epsilon);
@@ -102,11 +114,31 @@ public:
       _error[0] = cfg_->obstacles.min_obstacle_dist * std::pow(_error[0] / cfg_->obstacles.min_obstacle_dist, cfg_->optim.obstacle_cost_exponent);
     }
 
-    _error[1] = penaltyBoundFromBelow(dist, cfg_->obstacles.inflation_dist, 0.0);
-    if (cfg_->optim.inflation_cost_exponent != 1.0 && cfg_->obstacles.inflation_dist > 0.0)
+    double inflation_dist;
+    double inflation_cost_exponent;
+    // Get the correct inflation configuration for this edge's obstacle region type.
+    // Allowing imbalanced inflation for left/right allows for preferring to
+    // drive on one side or the other, which is more socially acceptable.
+    if (region_ == REGION_ALL)
+    {
+      inflation_dist = cfg_->obstacles.inflation_dist;
+      inflation_cost_exponent = cfg_->optim.inflation_cost_exponent;
+    }
+    else if (region_ == REGION_LEFT)
+    {
+      inflation_dist = cfg_->obstacles.left_inflation_dist;
+      inflation_cost_exponent = cfg_->optim.left_inflation_cost_exponent;
+    }
+    else if (region_ == REGION_RIGHT)
+    {
+      inflation_dist = cfg_->obstacles.right_inflation_dist;
+      inflation_cost_exponent = cfg_->optim.right_inflation_cost_exponent;
+    }
+    _error[1] = penaltyBoundFromBelow(dist, inflation_dist, 0.0);
+    if (inflation_cost_exponent != 1.0 && inflation_dist > 0.0)
     {
       // Optional non-linear inflation cost. See comment above about obstacle_cost_exponent.
-      _error[1] = cfg_->obstacles.inflation_dist * std::pow(_error[1] / cfg_->obstacles.inflation_dist, cfg_->optim.inflation_cost_exponent);
+      _error[1] = inflation_dist * std::pow(_error[1] / inflation_dist, inflation_cost_exponent);
     }
 
     ROS_ASSERT_MSG(std::isfinite(_error[0]), "EdgeObstacle::computeError() _error[0]=%f\n",_error[0]);
@@ -148,6 +180,7 @@ public:
 
 protected:
   costmap_3d::Costmap3DQueryPtr costmap_3d_query_;
+  Region region_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
