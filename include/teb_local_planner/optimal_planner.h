@@ -70,6 +70,7 @@
 #include <teb_local_planner/g2o_types/edge_via_point.h>
 #include <teb_local_planner/g2o_types/edge_prefer_rotdir.h>
 #include <teb_local_planner/g2o_types/edge_3d_costmap.h>
+#include <teb_local_planner/g2o_types/edge_3d_costmap_left_right.h>
 
 // messages
 #include <nav_msgs/Path.h>
@@ -662,6 +663,11 @@ protected:
    * @brief Add edges to query the costmap 3D directly.
    */
   void AddEdges3DCostmap(double weight_multiplier=1.0);
+
+  /**
+   * @brief Add 3D costmap edges to inflate obstacles that are left/right
+   */
+  void AddEdges3DCostmapLeftRight();
 
   /**
    * @brief Add all edges (local cost functions) related to minimizing the distance to via-points

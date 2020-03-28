@@ -483,6 +483,8 @@ bool TebOptimalPlanner::buildGraph(double weight_multiplier)
     AddEdgesDynamicObstacles();
 
   AddEdges3DCostmap(weight_multiplier);
+
+  AddEdges3DCostmapLeftRight();
   
   AddEdgesViaPoints();
   
@@ -1054,6 +1056,55 @@ void TebOptimalPlanner::AddEdges3DCostmap(double weight_multiplier)
     edge->setTebConfig(*cfg_);
     optimizer_->addEdge(edge);
   }
+}
+
+void TebOptimalPlanner::AddEdges3DCostmapLeftRight()
+{
+  if (!costmap_3d_query_)
+    return;
+
+  int first_pose = cfg_->obstacles.first_left_right_pose;
+  int last_pose = cfg_->obstacles.last_left_right_pose;
+  int step_count = cfg_->obstacles.left_right_skip_poses + 1;
+  Eigen::Matrix<double,1,1> information;
+  information(0,0) = cfg_->optim.weight_left_right_inflation;
+
+  // First index from the end for negative indices
+  first_pose = (first_pose < 0 ? teb_.sizePoses() + first_pose : first_pose);
+  last_pose = (last_pose < 0 ? teb_.sizePoses() + last_pose : last_pose);
+
+  // Now clamp the first/last indices to the appropriate vertices
+  first_pose = std::max(first_pose, 1);
+  last_pose = std::min(last_pose, teb_.sizePoses()-2);
+
+  auto addLeftRightEdge = [this, information](bool is_left,
+                                              int i,
+                                              double inflation_dist,
+                                              double inflation_cost_exponent)
+  {
+    Edge3DCostmapLeftRight* edge = new Edge3DCostmapLeftRight(this->costmap_3d_query_,
+                                                              is_left,
+                                                              inflation_dist,
+                                                              inflation_cost_exponent);
+    edge->setVertex(0, this->teb_.PoseVertex(i));
+    edge->setInformation(information);
+    edge->setTebConfig(*this->cfg_);
+    this->optimizer_->addEdge(edge);
+  };
+
+  if (cfg_->obstacles.left_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+    for (int i = first_pose; i <= last_pose; i += step_count)
+      addLeftRightEdge(true,
+                       i,
+                       cfg_->obstacles.left_inflation_dist,
+                       cfg_->optim.left_inflation_cost_exponent);
+
+  if (cfg_->obstacles.right_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+    for (int i = first_pose; i <= last_pose; i += step_count)
+      addLeftRightEdge(false,
+                       i,
+                       cfg_->obstacles.right_inflation_dist,
+                       cfg_->optim.right_inflation_cost_exponent);
 }
 
 void TebOptimalPlanner::AddEdgesTimeOptimal()
