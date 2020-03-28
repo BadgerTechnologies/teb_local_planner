@@ -325,6 +325,8 @@ bool TebOptimalPlanner::buildGraph(double weight_multiplier)
     AddEdgesDynamicObstacles();
 
   AddEdges3DCostmap(weight_multiplier);
+
+  AddEdges3DCostmapLeftRight();
   
   AddEdgesViaPoints();
   
@@ -895,6 +897,78 @@ void TebOptimalPlanner::AddEdges3DCostmap(double weight_multiplier)
     edge->setInformation(information);
     edge->setTebConfig(*cfg_);
     optimizer_->addEdge(edge);
+  }
+}
+
+void TebOptimalPlanner::AddEdges3DCostmapLeftRight()
+{
+  if (!costmap_3d_query_)
+    return;
+
+  bool add_left = false;
+  bool add_right = false;
+  int first_pose = 0;
+  int last_pose = 0;
+  int step_count = 1;
+  Eigen::Matrix<double,1,1> information;
+
+  if (cfg_->obstacles.left_inflation_dist > cfg_->obstacles.min_obstacle_dist ||
+      cfg_->obstacles.right_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+  {
+    first_pose = cfg_->obstacles.first_left_right_pose;
+    last_pose = cfg_->obstacles.last_left_right_pose;
+    step_count = cfg_->obstacles.left_right_skip_poses + 1;
+    information(0,0) = cfg_->optim.weight_left_right_inflation;
+  }
+  if (cfg_->obstacles.left_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+  {
+    add_left = true;
+  }
+  if (cfg_->obstacles.right_inflation_dist > cfg_->obstacles.min_obstacle_dist)
+  {
+    add_right = true;
+  }
+  if (!add_left && !add_right)
+  {
+    return;
+  }
+
+  // First index from the end for negative indices
+  if (first_pose < 0)
+  {
+    first_pose = teb_.sizePoses() + first_pose;
+  }
+  if (last_pose < 0)
+  {
+    last_pose = teb_.sizePoses() + last_pose;
+  }
+  // Now clamp the first/last indices to the appropriate vertices
+  if (first_pose < 1)
+  {
+    first_pose = 1;
+  }
+  if (last_pose > teb_.sizePoses()-2)
+  {
+    last_pose = teb_.sizePoses()-2;
+  }
+  for (int i = first_pose; i <= last_pose; i += step_count)
+  {
+    if (add_left)
+    {
+      Edge3DCostmapLeft* edge = new Edge3DCostmapLeft(costmap_3d_query_);
+      edge->setVertex(0, teb_.PoseVertex(i));
+      edge->setInformation(information);
+      edge->setTebConfig(*cfg_);
+      optimizer_->addEdge(edge);
+    }
+    if (add_right)
+    {
+      Edge3DCostmapRight* edge = new Edge3DCostmapRight(costmap_3d_query_);
+      edge->setVertex(0, teb_.PoseVertex(i));
+      edge->setInformation(information);
+      edge->setTebConfig(*cfg_);
+      optimizer_->addEdge(edge);
+    }
   }
 }
 

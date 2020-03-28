@@ -127,6 +127,8 @@ public:
   {
     double min_obstacle_dist; //!< Minimum desired separation from obstacles
     double inflation_dist; //!< buffer zone around obstacles with non-zero penalty costs (should be larger than min_obstacle_dist in order to take effect)
+    double left_inflation_dist; //!< buffer zone around obstacles to the left with non-zero penalty costs (should be larger than min_obstacle_dist in order to take effect)
+    double right_inflation_dist; //!< buffer zone around obstacles to the right with non-zero penalty costs (should be larger than min_obstacle_dist in order to take effect)
     double dynamic_obstacle_inflation_dist; //!< Buffer zone around predicted locations of dynamic obstacles with non-zero penalty costs (should be larger than min_obstacle_dist in order to take effect)
     bool include_dynamic_obstacles; //!< Specify whether the movement of dynamic obstacles should be predicted by a constant velocity model (this also effects homotopy class planning); If false, all obstacles are considered to be static.
     bool include_costmap_obstacles; //!< Specify whether the obstacles in the costmap should be taken into account directly
@@ -139,6 +141,9 @@ public:
     std::string costmap_converter_plugin; //!< Define a plugin name of the costmap_converter package (costmap cells are converted to points/lines/polygons)
     bool costmap_converter_spin_thread; //!< If \c true, the costmap converter invokes its callback queue in a different thread
     int costmap_converter_rate; //!< The rate that defines how often the costmap_converter plugin processes the current costmap (the value should not be much higher than the costmap update rate)
+    int first_left_right_pose; //!< First pose to attach left/right edges.
+    int last_left_right_pose; //!< Last pose to attach left/right edges.
+    int left_right_skip_poses; //!< Skip this many poses when adding left/right edges
   } obstacles; //!< Obstacle related parameters
 
 
@@ -174,6 +179,9 @@ public:
     double weight_adapt_factor; //!< Some special weights (currently 'weight_obstacle') are repeatedly scaled by this factor in each outer TEB iteration (weight_new = weight_old*factor); Increasing weights iteratively instead of setting a huge value a-priori leads to better numerical conditions of the underlying optimization problem.
     double obstacle_cost_exponent; //!< Exponent for nonlinear obstacle cost (cost = min_obstacle_dist * pow([fraction of possible linear_cost], obstacle_cost_exponent)). Set to 1 to disable nonlinear cost (default)
     double inflation_cost_exponent; //!< Exponent for nonlinear obstacle inflation cost (cost = inflation_dist * pow([fraction of possible inflation_cost], inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
+    double weight_left_right_inflation; //!< Optimization weight for the left/right inflation penalty (should be small)
+    double left_inflation_cost_exponent; //!< Exponent for nonlinear left obstacle inflation cost (cost = left_inflation_dist * pow([fraction of possible inflation_cost], left_inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
+    double right_inflation_cost_exponent; //!< Exponent for nonlinear right obstacle inflation cost (cost = right_inflation_dist * pow([fraction of possible inflation_cost], right_inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
   } optim; //!< Optimization related parameters
 
 
@@ -295,6 +303,8 @@ public:
 
     obstacles.min_obstacle_dist = 0.5;
     obstacles.inflation_dist = 0.6;
+    obstacles.left_inflation_dist = 0.0;
+    obstacles.right_inflation_dist = 0.0;
     obstacles.dynamic_obstacle_inflation_dist = 0.6;
     obstacles.include_dynamic_obstacles = true;
     obstacles.include_costmap_obstacles = true;
@@ -307,6 +317,9 @@ public:
     obstacles.costmap_converter_plugin = "";
     obstacles.costmap_converter_spin_thread = true;
     obstacles.costmap_converter_rate = 5;
+    obstacles.first_left_right_pose = 0;
+    obstacles.last_left_right_pose = 0;
+    obstacles.left_right_skip_poses = 0;
 
     // Optimization
 
@@ -336,6 +349,9 @@ public:
     optim.weight_adapt_factor = 2.0;
     optim.obstacle_cost_exponent = 1.0;
     optim.inflation_cost_exponent = 1.0;
+    optim.weight_left_right_inflation = 1.0;
+    optim.left_inflation_cost_exponent = 1.0;
+    optim.right_inflation_cost_exponent = 1.0;
 
     // Homotopy Class Planner
 
