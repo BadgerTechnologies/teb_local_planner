@@ -635,6 +635,11 @@ protected:
   void AddEdges3DCostmap(double weight_multiplier=1.0);
 
   /**
+   * @brief Add 3D costmap edges to inflate obstacles that are left/right
+   */
+  void AddEdges3DCostmapLeftRight();
+
+  /**
    * @brief Add all edges (local cost functions) related to minimizing the distance to via-points
    * @see EdgeViaPoint
    * @see buildGraph
