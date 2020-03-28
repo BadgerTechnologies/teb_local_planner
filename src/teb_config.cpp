@@ -97,6 +97,8 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   // Obstacles
   nh.param("min_obstacle_dist", obstacles.min_obstacle_dist, obstacles.min_obstacle_dist);
   nh.param("inflation_dist", obstacles.inflation_dist, obstacles.inflation_dist);
+  nh.param("left_inflation_dist", obstacles.left_inflation_dist, obstacles.left_inflation_dist);
+  nh.param("right_inflation_dist", obstacles.right_inflation_dist, obstacles.right_inflation_dist);
   nh.param("dynamic_obstacle_inflation_dist", obstacles.dynamic_obstacle_inflation_dist, obstacles.dynamic_obstacle_inflation_dist);
   nh.param("include_dynamic_obstacles", obstacles.include_dynamic_obstacles, obstacles.include_dynamic_obstacles);
   nh.param("include_costmap_obstacles", obstacles.include_costmap_obstacles, obstacles.include_costmap_obstacles);
@@ -109,6 +111,9 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("costmap_converter_plugin", obstacles.costmap_converter_plugin, obstacles.costmap_converter_plugin);
   nh.param("costmap_converter_spin_thread", obstacles.costmap_converter_spin_thread, obstacles.costmap_converter_spin_thread);
   nh.param("costmap_converter_rate", obstacles.costmap_converter_rate, obstacles.costmap_converter_rate);
+  nh.param("first_left_right_pose", obstacles.first_left_right_pose, obstacles.first_left_right_pose);
+  nh.param("last_left_right_pose", obstacles.last_left_right_pose, obstacles.last_left_right_pose);
+  nh.param("left_right_skip_poses", obstacles.left_right_skip_poses, obstacles.left_right_skip_poses);
   
   // Optimization
   nh.param("no_inner_iterations", optim.no_inner_iterations, optim.no_inner_iterations);
@@ -136,6 +141,9 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("weight_adapt_factor", optim.weight_adapt_factor, optim.weight_adapt_factor);
   nh.param("obstacle_cost_exponent", optim.obstacle_cost_exponent, optim.obstacle_cost_exponent);
   nh.param("inflation_cost_exponent", optim.inflation_cost_exponent, optim.inflation_cost_exponent);
+  nh.param("weight_left_right_inflation", optim.weight_left_right_inflation, optim.weight_left_right_inflation);
+  nh.param("left_inflation_cost_exponent", optim.left_inflation_cost_exponent, optim.left_inflation_cost_exponent);
+  nh.param("right_inflation_cost_exponent", optim.right_inflation_cost_exponent, optim.right_inflation_cost_exponent);
   
   // Homotopy Class Planner
   nh.param("enable_homotopy_class_planning", hcp.enable_homotopy_class_planning, hcp.enable_homotopy_class_planning); 
@@ -237,6 +245,8 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   // Obstacles
   obstacles.min_obstacle_dist = cfg.min_obstacle_dist;
   obstacles.inflation_dist = cfg.inflation_dist;
+  obstacles.left_inflation_dist = cfg.left_inflation_dist;
+  obstacles.right_inflation_dist = cfg.right_inflation_dist;
   obstacles.dynamic_obstacle_inflation_dist = cfg.dynamic_obstacle_inflation_dist;
   obstacles.include_dynamic_obstacles = cfg.include_dynamic_obstacles;
   obstacles.include_costmap_obstacles = cfg.include_costmap_obstacles;
@@ -245,6 +255,9 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   obstacles.obstacle_association_cutoff_factor = cfg.obstacle_association_cutoff_factor;
   obstacles.costmap_obstacles_behind_robot_dist = cfg.costmap_obstacles_behind_robot_dist;
   obstacles.obstacle_poses_affected = cfg.obstacle_poses_affected;
+  obstacles.first_left_right_pose = cfg.first_left_right_pose;
+  obstacles.last_left_right_pose = cfg.last_left_right_pose;
+  obstacles.left_right_skip_poses = cfg.left_right_skip_poses;
 
   
   // Optimization
@@ -272,6 +285,9 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   optim.weight_adapt_factor = cfg.weight_adapt_factor;
   optim.obstacle_cost_exponent = cfg.obstacle_cost_exponent;
   optim.inflation_cost_exponent = cfg.inflation_cost_exponent;
+  optim.weight_left_right_inflation = cfg.weight_left_right_inflation;
+  optim.left_inflation_cost_exponent = cfg.left_inflation_cost_exponent;
+  optim.right_inflation_cost_exponent = cfg.right_inflation_cost_exponent;
   
   // Homotopy Class Planner
   hcp.enable_multithreading = cfg.enable_multithreading;
