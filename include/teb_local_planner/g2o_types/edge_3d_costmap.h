@@ -103,7 +103,7 @@ public:
     }
 
     _error[1] = penaltyBoundFromBelow(dist, cfg_->obstacles.inflation_dist, 0.0);
-    if (cfg_->optim.inflation_cost_exponent != 1.0 && cfg_->obstacles.inflation_dist > 0.0)
+    if (cfg_->optim.inflation_cost_exponent != 1.0 && cfg_->obstacles.inflation_dist > 0.0 && dist >= 0.0)
     {
       // Optional non-linear inflation cost. See comment above about obstacle_cost_exponent.
       _error[1] = cfg_->obstacles.inflation_dist * std::pow(_error[1] / cfg_->obstacles.inflation_dist, cfg_->optim.inflation_cost_exponent);
