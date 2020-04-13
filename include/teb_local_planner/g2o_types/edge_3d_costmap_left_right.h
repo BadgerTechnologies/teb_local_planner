@@ -81,13 +81,19 @@ public:
     costmap_3d_query_ = costmap_3d_query;
   }
 
-  void computeError()
+  inline void computeErrorImpl(bool reuse_results=false)
   {
     const VertexPose* vertex_pose = static_cast<const VertexPose*>(_vertices[0]);
     geometry_msgs::Pose pose_msg;
     vertex_pose->pose().toPoseMsg(pose_msg);
 
-    double dist = costmap_3d_query_->footprintSignedDistance(pose_msg, region);
+    double dist = costmap_3d_query_->footprintDistance(pose_msg, region, reuse_results);
+
+    // For left/right edges, make derivative zero inside the region normal
+    // obstacles have influence. This prevents destabalizing a TeB that must
+    // go near an obstacle.
+    if (dist < cfg_->obstacles.min_obstacle_dist)
+      dist = cfg_->obstacles.min_obstacle_dist;
 
     // Left/right inflation cost.
     double inflation_dist = 0.0;
@@ -110,6 +116,11 @@ public:
     }
 
     ROS_ASSERT_MSG(std::isfinite(_error[0]), "Edge3DCostmapLeftRight::computeError() _error[0]=%f\n",_error[0]);
+  }
+
+  void computeError()
+  {
+    computeErrorImpl();
   }
 
   virtual void linearizeOplus()
@@ -137,7 +148,8 @@ public:
       vi->push();
       add_vi[d] = delta;
       vi->oplus(add_vi);
-      computeError();
+      // reuse the previous calculation to save time estimating the derivative
+      computeErrorImpl(true);
       vi->pop();
       add_vi[d] = 0.0;
 

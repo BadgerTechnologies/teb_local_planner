@@ -80,13 +80,13 @@ public:
     costmap_3d_query_ = costmap_3d_query;
   }
 
-  void computeError()
+  inline void computeErrorImpl(bool reuse_results=false)
   {
     const VertexPose* vertex_pose = static_cast<const VertexPose*>(_vertices[0]);
     geometry_msgs::Pose pose_msg;
     vertex_pose->pose().toPoseMsg(pose_msg);
 
-    double dist = costmap_3d_query_->footprintSignedDistance(pose_msg);
+    double dist = costmap_3d_query_->footprintSignedDistance(pose_msg, costmap_3d::Costmap3DQuery::ALL, reuse_results);
 
     // Original obstacle cost.
     _error[0] = penaltyBoundFromBelow(dist, cfg_->obstacles.min_obstacle_dist, cfg_->optim.penalty_epsilon);
@@ -110,6 +110,11 @@ public:
     }
 
     ROS_ASSERT_MSG(std::isfinite(_error[0]), "EdgeObstacle::computeError() _error[0]=%f\n",_error[0]);
+  }
+
+  void computeError()
+  {
+    return computeErrorImpl();
   }
 
   virtual void linearizeOplus()
@@ -137,7 +142,8 @@ public:
       vi->push();
       add_vi[d] = delta;
       vi->oplus(add_vi);
-      computeError();
+      // reuse the previous calculation to save time estimating the derivative
+      computeErrorImpl(true);
       vi->pop();
       add_vi[d] = 0.0;
 
