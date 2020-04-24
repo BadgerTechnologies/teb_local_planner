@@ -364,6 +364,7 @@ protected:
   costmap_2d::Costmap2DROS* costmap_ros_; //!< Pointer to the costmap ros wrapper, received from the navigation stack
   costmap_3d::Costmap3DROS* costmap_3d_ros_; //!< Pointer to the costmap 3D ros wrapper, if use_costmap_3d and costmap is actually 3D
   costmap_2d::Costmap2D* costmap_; //!< Pointer to the 2d costmap (obtained from the costmap ros wrapper)
+  costmap_3d::Costmap3DQueryPtr costmap_3d_query_; //!< Pointer to the costmap 3D query, if use_costmap_3d and costmap is actually 3D
   tf::TransformListener* tf_; //!< pointer to Transform Listener
     
   // internal objects (memory management owned)

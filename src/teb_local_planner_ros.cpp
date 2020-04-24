@@ -137,10 +137,14 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     if (costmap_3d_ros_ != nullptr)
     {
       ROS_INFO("Using Costmap3DROS");
-      // Override the costmap model with a Costmap3DModel
-      costmap_model_ = boost::make_shared<base_local_planner::Costmap3DModel>(*costmap_3d_ros_);
       // Tell the planner to use a 3D costmap query that tracks the current costmap for obstacles
-      planner_->useCostmap3DQuery(costmap_3d_ros_->getAssociatedQuery());
+      costmap_3d_query_ = costmap_3d_ros_->getBufferedQuery();
+      planner_->useCostmap3DQuery(costmap_3d_query_);
+      // Override the costmap model with a Costmap3DModel
+      auto costmap_3d_model_ = boost::make_shared<base_local_planner::Costmap3DModel>(*costmap_3d_ros_);
+      // Override the default associated query in the model with our buffered query
+      costmap_3d_model_->setQuery(costmap_3d_query_);
+      costmap_model_ = costmap_3d_model_;
     }
 
     //Initialize a costmap to polygon converter
@@ -337,6 +341,9 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   else
     updateObstacleContainerWithCostmap();
   
+  // update costmap 3D query
+  costmap_3d_ros_->updateBufferedQuery(costmap_3d_query_);
+
   // also consider custom obstacles (must be called after other updates, since the container is not cleared)
   updateObstacleContainerWithCustomObstacles();
   
