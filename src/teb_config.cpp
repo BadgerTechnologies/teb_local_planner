@@ -174,6 +174,15 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("oscillation_recovery_min_duration", recovery.oscillation_recovery_min_duration, recovery.oscillation_recovery_min_duration);
   nh.param("oscillation_filter_duration", recovery.oscillation_filter_duration, recovery.oscillation_filter_duration);
 
+  nh.param("enable_preadjust_goal_if_blocked", recovery.enable_preadjust_goal_if_blocked, recovery.enable_preadjust_goal_if_blocked);
+  nh.param("preadjust_weight_nominal_goal", recovery.preadjust_weight_nominal_goal, recovery.preadjust_weight_nominal_goal);
+  nh.param("preadjust_weight_obstacle", recovery.preadjust_weight_obstacle, recovery.preadjust_weight_obstacle);
+  nh.param("preadjust_xy_tolerance", recovery.preadjust_xy_tolerance, recovery.preadjust_xy_tolerance);
+  nh.param("preadjust_stability_nominal_goal_change_dist", recovery.preadjust_stability_nominal_goal_change_dist, recovery.preadjust_stability_nominal_goal_change_dist);
+  nh.param("preadjust_stability_always_nominal_goal_obst_dist", recovery.preadjust_stability_always_nominal_goal_obst_dist, recovery.preadjust_stability_always_nominal_goal_obst_dist);
+  nh.param("preadjust_stability_keep_using_nominal_goal_obst_dist", recovery.preadjust_stability_keep_using_nominal_goal_obst_dist, recovery.preadjust_stability_keep_using_nominal_goal_obst_dist);
+  nh.param("preadjust_stability_prev_adjusted_goal_min_obst_dist", recovery.preadjust_stability_prev_adjusted_goal_min_obst_dist, recovery.preadjust_stability_prev_adjusted_goal_min_obst_dist);
+  nh.param("preadjust_stability_prev_adjusted_goal_max_obst_dist", recovery.preadjust_stability_prev_adjusted_goal_max_obst_dist, recovery.preadjust_stability_prev_adjusted_goal_max_obst_dist);
   checkParameters();
   checkDeprecated(nh);
 }
@@ -290,6 +299,16 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   
   recovery.shrink_horizon_backup = cfg.shrink_horizon_backup;
   recovery.oscillation_recovery = cfg.oscillation_recovery;
+
+  recovery.enable_preadjust_goal_if_blocked = cfg.enable_preadjust_goal_if_blocked;
+  recovery.preadjust_weight_nominal_goal = cfg.preadjust_weight_nominal_goal;
+  recovery.preadjust_weight_obstacle = cfg.preadjust_weight_obstacle;
+  recovery.preadjust_xy_tolerance = cfg.preadjust_xy_tolerance;
+  recovery.preadjust_stability_nominal_goal_change_dist = cfg.preadjust_stability_nominal_goal_change_dist;
+  recovery.preadjust_stability_keep_using_nominal_goal_obst_dist = cfg.preadjust_stability_keep_using_nominal_goal_obst_dist;
+  recovery.preadjust_stability_always_nominal_goal_obst_dist = cfg.preadjust_stability_always_nominal_goal_obst_dist;
+  recovery.preadjust_stability_prev_adjusted_goal_min_obst_dist = cfg.preadjust_stability_prev_adjusted_goal_min_obst_dist;
+  recovery.preadjust_stability_prev_adjusted_goal_max_obst_dist = cfg.preadjust_stability_prev_adjusted_goal_max_obst_dist;
   
   checkParameters();
 }

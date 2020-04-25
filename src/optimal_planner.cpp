@@ -187,9 +187,8 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
   // Always keep orientation of adjusted goal matching that of nominal goal
   auto handleNominalGoalChange = [this, distFromNominalGoal]()
   {
-    double delta_theta = fabs(g2o::normalize_theta(teb_.nominalGoal().theta() - preadjust_prev_nominal_goal_.theta()));
     // The reason this if is written this way is so that it will be true if value is NaN
-    if (!(distFromNominalGoal(preadjust_prev_adjusted_goal_) < 0.05) || delta_theta > 0.03)
+    if (!(distFromNominalGoal(preadjust_prev_adjusted_goal_) < cfg_->recovery.preadjust_stability_nominal_goal_change_dist))
     {
       // Reset with new nominal goal
       preadjust_prev_adjusted_goal_ = preadjust_prev_nominal_goal_ = teb_.nominalGoal();
@@ -207,7 +206,8 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
   auto isShouldUseNominalGoal = [this, obstacleDistance]() -> bool
   {
     double nominal_obst_dist = obstacleDistance(teb_.nominalGoal());
-    if (nominal_obst_dist > 0.15 || (preadjust_is_used_nominal_ && nominal_obst_dist > 0.03))
+    if (nominal_obst_dist > cfg_->recovery.preadjust_stability_always_nominal_goal_obst_dist
+        || (preadjust_is_used_nominal_ && nominal_obst_dist > cfg_->recovery.preadjust_stability_keep_using_nominal_goal_obst_dist))
     {
       ROS_DEBUG("Using nominal goal.");
       preadjust_prev_adjusted_goal_ = teb_.BackPose() = teb_.nominalGoal();
@@ -229,7 +229,9 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
   {
     PoseSE2 prev_goal = preadjust_prev_adjusted_goal_;
     double prev_obst_dist = obstacleDistance(prev_goal);
-    if (0.03 < prev_obst_dist && prev_obst_dist < 0.30 && distFromNominalGoal(prev_goal) < 0.3)
+    if (cfg_->recovery.preadjust_stability_prev_adjusted_goal_min_obst_dist < prev_obst_dist
+        && prev_obst_dist < cfg_->recovery.preadjust_stability_prev_adjusted_goal_max_obst_dist
+        && distFromNominalGoal(prev_goal) < cfg_->recovery.preadjust_xy_tolerance)
     {
       ROS_DEBUG_STREAM("Using prev goal. obst dist: " << prev_obst_dist);
       teb_.BackPose() = prev_goal;
@@ -277,7 +279,7 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
   // EdgeViaPoint at nominal goal to attract the vertex
   ViaPoint goal_via_point(teb_.nominalGoal().x(), teb_.nominalGoal().y());
   Eigen::Matrix<double,1,1> via_info;
-  via_info.fill(cfg_->optim.weight_viapoint);   // FIXME
+  via_info.fill(cfg_->recovery.preadjust_weight_nominal_goal);
   EdgeViaPoint* edge_viapoint = new EdgeViaPoint;  // clearGraph() will free edges.
   edge_viapoint->setVertex(0, &goal_vertex);
   edge_viapoint->setInformation(via_info);
@@ -287,7 +289,7 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
   // Edge3DCostmap to keep us clear of obstacles
   Eigen::Matrix<double,2,2> info_obst;
   info_obst.fill(0.0);
-  info_obst(0,0) = cfg_->optim.weight_dynamic_obstacle;   // FIXME
+  info_obst(0,0) = cfg_->recovery.preadjust_weight_obstacle;
   Edge3DCostmap* edge = new Edge3DCostmap(costmap_3d_query_);
   edge->setVertex(0, &goal_vertex);
   edge->setInformation(info_obst);
@@ -301,7 +303,7 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
   if (is_success)
   {
     double delta_pos = distFromNominalGoal(teb_.BackPose());
-    if (delta_pos > 0.3)
+    if (delta_pos > cfg_->recovery.preadjust_xy_tolerance)
     {
       ROS_WARN_STREAM("Goal Pre-adjustment failed. Position tolerance exceeded: " << delta_pos);
       is_success = false;
@@ -326,9 +328,12 @@ bool TebOptimalPlanner::optimizeTEB(int iterations_innerloop, int iterations_out
   
   double weight_multiplier = 1.0;
 
-  if (!preAdjustGoalIfBlocked())
+  if (cfg_->recovery.enable_preadjust_goal_if_blocked)
   {
-    return false;
+    if (!preAdjustGoalIfBlocked())
+    {
+      return false;
+    }
   }
 
   // TODO(roesmann): we introduced the non-fast mode with the support of dynamic obstacles

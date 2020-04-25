@@ -221,6 +221,16 @@ public:
     double oscillation_omega_eps; //!< Threshold for the average normalized angular velocity: if oscillation_v_eps and oscillation_omega_eps are not exceeded both, a possible oscillation is detected
     double oscillation_recovery_min_duration; //!< Minumum duration [sec] for which the recovery mode is activated after an oscillation is detected.
     double oscillation_filter_duration; //!< Filter length/duration [sec] for the detection of oscillations
+
+    bool enable_preadjust_goal_if_blocked; //!< Adjust the goal if it is in conflict with an obstacle. It is allowed to move but its theta remains fixed. Affects both intermediate (horizon) goal and final goal.
+    double preadjust_weight_nominal_goal; //!< Optimzer weight of the via point to attract the the preadjusted goal to the nominal goal.
+    double preadjust_weight_obstacle; //!< Optimzer weight of obstacles when preadjusting a blocked goal
+    double preadjust_xy_tolerance; //!< Fail if unable to find a non-conflicting goal within this distance of the nominal goal
+    double preadjust_stability_nominal_goal_change_dist; //!< Consider the nominal goal to change when it has moved this far, so drop the cached previous adjusted goal. This tolerance allows for small noise from localizer.
+    double preadjust_stability_keep_using_nominal_goal_obst_dist; //!< If we used the nominal goal last cycle, keep doing so unless it is closer than this limit to an obstacle. (i.e. transition from clear to blocked)
+    double preadjust_stability_always_nominal_goal_obst_dist; //!< Always use the nominal goal if it is at least this far from an obstacle. (causes transition from blocked to clear)
+    double preadjust_stability_prev_adjusted_goal_min_obst_dist; //!< Use prev adjusted goal if it is between ..._min_obst_dist and ..._max_obst_dist (and we determined not to just use the nominal goal)
+    double preadjust_stability_prev_adjusted_goal_max_obst_dist; //!< Use prev adjusted goal if it is between ..._min_obst_dist and ..._max_obst_dist (and we determined not to just use the nominal goal)
   } recovery; //!< Parameters related to recovery and backup strategies
 
 
@@ -378,6 +388,15 @@ public:
     recovery.oscillation_recovery_min_duration = 10;
     recovery.oscillation_filter_duration = 10;
 
+    recovery.enable_preadjust_goal_if_blocked = false;
+    recovery.preadjust_weight_nominal_goal = 2.0;
+    recovery.preadjust_weight_obstacle = 10.0;
+    recovery.preadjust_xy_tolerance = 0.5;
+    recovery.preadjust_stability_nominal_goal_change_dist = 0.05;
+    recovery.preadjust_stability_keep_using_nominal_goal_obst_dist = 0.03;
+    recovery.preadjust_stability_always_nominal_goal_obst_dist = 0.15;
+    recovery.preadjust_stability_prev_adjusted_goal_min_obst_dist = 0.03;
+    recovery.preadjust_stability_prev_adjusted_goal_max_obst_dist = 0.30;
 
   }
 
