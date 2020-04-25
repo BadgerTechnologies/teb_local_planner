@@ -167,6 +167,153 @@ boost::shared_ptr<g2o::SparseOptimizer> TebOptimalPlanner::initOptimizer()
   return optimizer;
 }
 
+bool TebOptimalPlanner::preAdjustGoalIfBlocked()
+{
+  // Calc distance from given pose to its nearest obstacle (negative if in collision)
+  auto obstacleDistance = [this](const PoseSE2& pose) -> double
+  {
+    geometry_msgs::Pose pose_msg;
+    pose.toPoseMsg(pose_msg);
+    return this->costmap_3d_query_->footprintSignedDistance(pose_msg);
+  };
+
+  // Calc distance from given pose to to the current nominal goal
+  auto distFromNominalGoal = [this](const PoseSE2& test_pose) -> double
+  {
+    return (teb_.nominalGoal().position() - test_pose.position()).norm();
+  };
+
+  // Re-init if nominal goal has changed (with small margin for localizer noise)
+  // Always keep orientation of adjusted goal matching that of nominal goal
+  auto handleNominalGoalChange = [this, distFromNominalGoal]()
+  {
+    double delta_theta = fabs(g2o::normalize_theta(teb_.nominalGoal().theta() - preadjust_prev_nominal_goal_.theta()));
+    // The reason this if is written this way is so that it will be true if value is NaN
+    if (!(distFromNominalGoal(preadjust_prev_adjusted_goal_) < 0.05) || delta_theta > 0.03)
+    {
+      // Reset with new nominal goal
+      preadjust_prev_adjusted_goal_ = preadjust_prev_nominal_goal_ = teb_.nominalGoal();
+    }
+    else
+    {
+      // In any case, always adopt even micro-changes to the goal angle
+      preadjust_prev_adjusted_goal_.theta() = preadjust_prev_nominal_goal_.theta() = teb_.nominalGoal().theta();
+    }
+  };
+
+  // Should we just use the nominal goal? (i.e. no preadjust needed)
+  // True if it is far from obstacle or if we used nominal goal last iteration
+  // and it is not in collision (OK if obstacle very close to it)
+  auto isShouldUseNominalGoal = [this, obstacleDistance]() -> bool
+  {
+    double nominal_obst_dist = obstacleDistance(teb_.nominalGoal());
+    if (nominal_obst_dist > 0.15 || (preadjust_is_used_nominal_ && nominal_obst_dist > 0.03))
+    {
+      ROS_DEBUG("Using nominal goal.");
+      preadjust_prev_adjusted_goal_ = teb_.BackPose() = teb_.nominalGoal();
+      preadjust_prev_nominal_goal_ = teb_.nominalGoal();
+      preadjust_is_used_nominal_ = true;
+    }
+    else
+    {
+      preadjust_is_used_nominal_ = false;
+    }
+    return preadjust_is_used_nominal_;
+  };
+
+  // Should we use the adjusted goal calculated previously. Helps keep solution stable.
+  // True if it is still not in collision. But not if it is too far from an obstacle,
+  // in which case it is better to find a better adjusted goal.
+  // Also false if it was beyond tolerance from nominal goal.
+  auto isShouldUsePrevAdjstedGoal = [this, obstacleDistance, distFromNominalGoal]() -> bool
+  {
+    PoseSE2 prev_goal = preadjust_prev_adjusted_goal_;
+    double prev_obst_dist = obstacleDistance(prev_goal);
+    if (0.03 < prev_obst_dist && prev_obst_dist < 0.30 && distFromNominalGoal(prev_goal) < 0.3)
+    {
+      ROS_DEBUG_STREAM("Using prev goal. obst dist: " << prev_obst_dist);
+      teb_.BackPose() = prev_goal;
+      return true;
+    }
+    return false;
+  };
+
+  // Search backward from end of the TEB to find the first pose that is not in collision.
+  // This pose will be the starting place for the pre-adjustment optimization.
+  auto findLastOpenPose = [this, obstacleDistance]() -> PoseSE2
+  {
+    auto nominal_goal = teb_.nominalGoal();
+    for (int i = teb_.sizePoses() - 1; i > 0; i--)
+    {
+      PoseSE2 test_pose = teb_.Pose(i);
+      test_pose.theta() = nominal_goal.theta();
+      double obst_dist = obstacleDistance(test_pose);
+      if (obst_dist > 0.0)
+      {
+        ROS_DEBUG("Free Pose Found %d poses back. dist: %lf", teb_.sizePoses() - 1 - i, obst_dist);
+        return test_pose;
+      }
+    }
+    // No open pose found. Just return the furthest one back (the robot's current pose)
+    return teb_.Pose(0);
+  };
+
+  if (!costmap_3d_query_ || teb_.sizePoses() < 1) // We depend on 3D costmap
+    return true;
+  if (isShouldUseNominalGoal())     // The nominal goal is not blocked, so use it
+    return true;
+  handleNominalGoalChange();
+  if (isShouldUsePrevAdjstedGoal()) // Previous adjusted goal is still good enough
+    return true;
+  clearGraph();
+
+  // Add the VertexPose to be optimized
+  VertexPose goal_vertex(findLastOpenPose()); // clearGraph() does not free vertices, so put it on stack.
+  goal_vertex.setId(0);
+  goal_vertex.setFixed(false);
+  goal_vertex.setFixedTheta(true);
+  optimizer_->addVertex(&goal_vertex);
+
+  // EdgeViaPoint at nominal goal to attract the vertex
+  ViaPoint goal_via_point(teb_.nominalGoal().x(), teb_.nominalGoal().y());
+  Eigen::Matrix<double,1,1> via_info;
+  via_info.fill(cfg_->optim.weight_viapoint);   // FIXME
+  EdgeViaPoint* edge_viapoint = new EdgeViaPoint;  // clearGraph() will free edges.
+  edge_viapoint->setVertex(0, &goal_vertex);
+  edge_viapoint->setInformation(via_info);
+  edge_viapoint->setParameters(*cfg_, &goal_via_point);
+  optimizer_->addEdge(edge_viapoint);
+
+  // Edge3DCostmap to keep us clear of obstacles
+  Eigen::Matrix<double,2,2> info_obst;
+  info_obst.fill(0.0);
+  info_obst(0,0) = cfg_->optim.weight_dynamic_obstacle;   // FIXME
+  Edge3DCostmap* edge = new Edge3DCostmap(costmap_3d_query_);
+  edge->setVertex(0, &goal_vertex);
+  edge->setInformation(info_obst);
+  edge->setTebConfig(*cfg_);
+  optimizer_->addEdge(edge);
+
+  optimizer_->initializeOptimization();
+  bool is_success = (bool)(optimizer_->optimize(cfg_->hcp.max_number_plans_in_current_class));
+  preadjust_prev_adjusted_goal_ = teb_.BackPose() = goal_vertex.pose();
+  clearGraph();
+  if (is_success)
+  {
+    double delta_pos = distFromNominalGoal(teb_.BackPose());
+    if (delta_pos > 0.3)
+    {
+      ROS_WARN_STREAM("Goal Pre-adjustment failed. Position tolerance exceeded: " << delta_pos);
+      is_success = false;
+    }
+  }
+  else
+  {
+    ROS_WARN("Goal Pre-adjustment failed optimization");
+  }
+
+  return is_success;
+}
 
 bool TebOptimalPlanner::optimizeTEB(int iterations_innerloop, int iterations_outerloop, bool compute_cost_afterwards,
                                     double obst_cost_scale, double viapoint_cost_scale, bool alternative_time_cost)
@@ -178,6 +325,11 @@ bool TebOptimalPlanner::optimizeTEB(int iterations_innerloop, int iterations_out
   optimized_ = false;
   
   double weight_multiplier = 1.0;
+
+  if (!preAdjustGoalIfBlocked())
+  {
+    return false;
+  }
 
   // TODO(roesmann): we introduced the non-fast mode with the support of dynamic obstacles
   //                (which leads to better results in terms of x-y-t homotopy planning).
