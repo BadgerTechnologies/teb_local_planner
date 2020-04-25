@@ -362,6 +362,7 @@ bool TimedElasticBand::initTrajectoryToGoal(const PoseSE2& start, const PoseSE2&
     if (max_vel_x > 0) timestep = (goal.position()-BackPose().position()).norm()/max_vel_x;
     addPoseAndTimeDiff(goal,timestep); // add goal point
     setPoseVertexFixed(sizePoses()-1,true); // GoalConf is a fixed constraint during optimization	
+    nominal_goal_ = goal;  // Remember the initial pose since vertex pose is now allowed to change.
   }
   else // size!=0
   {
@@ -427,6 +428,7 @@ bool TimedElasticBand::initTrajectoryToGoal(const std::vector<geometry_msgs::Pos
     double dt = estimateDeltaT(BackPose(), goal, max_vel_x, max_vel_theta);
     addPoseAndTimeDiff(goal, dt);
     setPoseVertexFixed(sizePoses()-1,true); // GoalConf is a fixed constraint during optimization
+    nominal_goal_ = goal;  // Remember the initial pose since vertex pose is now allowed to change.
   }
   else // size!=0
   {
@@ -579,7 +581,11 @@ void TimedElasticBand::updateAndPruneTEB(boost::optional<const PoseSE2&> new_sta
   
   if (new_goal && sizePoses()>0)
   {
-    BackPose() = *new_goal;
+    if (nominal_goal_ != *new_goal)
+    {
+      BackPose() = *new_goal;
+      nominal_goal_ = *new_goal;
+    }
   }
 };
 
