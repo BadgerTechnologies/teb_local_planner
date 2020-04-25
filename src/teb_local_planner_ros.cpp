@@ -292,6 +292,22 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     goal_reached_ = true;
     return true;
   }
+
+  if (planner_->getTeb()->sizePoses() > 0
+      && planner_->getTeb()->nominalGoal() != planner_->getTeb()->BackPose())  // Have an adjusted goal?
+  {
+    PoseSE2 delta_adjusted = (planner_->getTeb()->BackPose() - robot_pose_);
+    if (planner_->getTeb()->nominalGoal() != planner_->getTeb()->BackPose()  // Have an adjusted goal?
+        && delta_adjusted.position().norm() < cfg_.goal_tolerance.xy_goal_tolerance
+        && fabs(delta_adjusted.theta()) < cfg_.goal_tolerance.yaw_goal_tolerance)
+    {
+      ROS_INFO_STREAM("Adjusted Goal Reached. Dist: " << delta_adjusted.position().norm()
+                      << " dtheta: " << delta_adjusted.theta()
+                      << " Dist orig goal: " << fabs(std::sqrt(dx*dx+dy*dy)));
+      goal_reached_ = true;
+      return true;
+    }
+  }
   
   
   // check if we should enter any backup mode and apply settings
