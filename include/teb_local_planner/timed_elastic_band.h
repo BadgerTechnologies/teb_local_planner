@@ -511,6 +511,8 @@ public:
    * @param status if \c true, the vertex will be fixed, otherwise unfixed
    */
   void setPoseVertexFixed(int index, bool status);
+  PoseSE2& nominalGoal() { return nominal_goal_; }
+  const PoseSE2& nominalGoal() const { return nominal_goal_; }
   
   /**
    * @brief Set a timediff vertex at pos \c index of the timediff sequence to be fixed or unfixed during optimization.
@@ -643,6 +645,7 @@ public:
 protected:
   PoseSequence pose_vec_; //!< Internal container storing the sequence of optimzable pose vertices
   TimeDiffSequence timediff_vec_;  //!< Internal container storing the sequence of optimzable timediff vertices
+  PoseSE2 nominal_goal_;
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
