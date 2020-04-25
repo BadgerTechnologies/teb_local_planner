@@ -123,14 +123,14 @@ public:
     * @see estimate
     * @return reference to the PoseSE2 estimate
     */ 
-  PoseSE2& pose() {return _estimate;}
+  PoseSE2& pose() {restoreThetaIfFixed(); return _estimate;}
   
   /**
     * @brief Access the pose (read-only)
     * @see estimate
     * @return const reference to the PoseSE2 estimate
     */ 
-  const PoseSE2& pose() const {return _estimate;}
+  const PoseSE2& pose() const {restoreThetaIfFixed(); return _estimate;}
 	  
   
   /**
@@ -175,13 +175,13 @@ public:
     * @brief Access the orientation part (yaw angle) of the pose
     * @return reference to the yaw angle
     */ 
-  double& theta() {return _estimate.theta();}
+  double& theta() {restoreThetaIfFixed(); return _estimate.theta();}
   
   /**
     * @brief Access the orientation part (yaw angle) of the pose (read-only)
     * @return const reference to the yaw angle
     */ 
-  const double& theta() const {return _estimate.theta();}
+  const double& theta() const {restoreThetaIfFixed(); return _estimate.theta();}
   
   /**
     * @brief Set the underlying estimate (2D vector) to zero.
@@ -200,6 +200,7 @@ public:
   virtual void oplusImpl(const double* update)
   {
     _estimate.plus(update);
+    restoreThetaIfFixed();
   }
 
   /**
@@ -222,10 +223,42 @@ public:
     */ 
   virtual bool write(std::ostream& os) const
   {
+    restoreThetaIfFixed();
     os << _estimate.x() << " " << _estimate.y() << _estimate.theta();
     return os.good();
   }
 
+  /**
+   * @brief Set mode that keeps theta fixed to its current value.
+   * This is a bit of a hack that allows a VertexPose to behave as if
+   * it has only 2 degrees of freedom rather than 3. There is no
+   * practical way to do this using polymorphism because of the way
+   * g2o is templatized.
+   */
+  virtual void setFixedTheta(bool is_fixed)
+  {
+    if (is_fixed)
+      _fixed_theta = _estimate.theta();
+    else
+      _fixed_theta = std::numeric_limits<double>::quiet_NaN();
+  }
+
+  bool isFixedTheta() const {return !std::isnan(_fixed_theta);}
+
+  void restoreThetaIfFixed() const
+  {
+    if (isFixedTheta())
+    {
+      // const_cast is "OK" here because this is semantically const (i.e.
+      // we're preventing any change to theta() from persisting.
+      (const_cast<double&>(_estimate.theta())) = _fixed_theta;
+    }
+  }
+
+protected:
+  double _fixed_theta = std::numeric_limits<double>::quiet_NaN();
+
+public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW  
 };
 
