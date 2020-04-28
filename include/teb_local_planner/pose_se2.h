@@ -292,14 +292,12 @@ public:
   /** @name Operator overloads / Allow some arithmetic operations */
   ///@{ 
   
-  bool operator==( const PoseSE2& rhs )
+  bool operator==(const PoseSE2& rhs) const
   {
-    if (&rhs == this)
-      return true;
     return _position == rhs._position && _theta == rhs._theta;
   }
 
-  bool operator!=( const PoseSE2& rhs )
+  bool operator!=(const PoseSE2& rhs) const
   {
     return (!(*this == rhs));
   }
