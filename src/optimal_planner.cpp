@@ -188,9 +188,10 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
   auto handleNominalGoalChange = [this, distFromNominalGoal]()
   {
     // The reason this if is written this way is so that it will be true if value is NaN
-    if (!(distFromNominalGoal(preadjust_prev_adjusted_goal_) < cfg_->recovery.preadjust_stability_nominal_goal_change_dist))
+    if (!(distFromNominalGoal(preadjust_prev_nominal_goal_) < cfg_->recovery.preadjust_stability_nominal_goal_change_dist))
     {
       // Reset with new nominal goal
+      ROS_DEBUG_STREAM("Preadjust Goal: Reset because nominal goal changed. Dist from old goal: " << distFromNominalGoal(preadjust_prev_nominal_goal_));
       preadjust_prev_adjusted_goal_ = preadjust_prev_nominal_goal_ = teb_.nominalGoal();
     }
     else
@@ -209,7 +210,7 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
     if (nominal_obst_dist > cfg_->recovery.preadjust_stability_always_nominal_goal_obst_dist
         || (preadjust_is_used_nominal_ && nominal_obst_dist > cfg_->recovery.preadjust_stability_keep_using_nominal_goal_obst_dist))
     {
-      ROS_DEBUG("Using nominal goal.");
+      ROS_DEBUG_STREAM("Using nominal goal. Dist from obstacle: " << nominal_obst_dist);
       preadjust_prev_adjusted_goal_ = teb_.BackPose() = teb_.nominalGoal();
       preadjust_prev_nominal_goal_ = teb_.nominalGoal();
       preadjust_is_used_nominal_ = true;
