@@ -91,7 +91,8 @@ typedef g2o::LinearSolverCSparse<TEBBlockSolver::PoseMatrixType> TEBLinearSolver
 //typedef g2o::LinearSolverCholmod<TEBBlockSolver::PoseMatrixType> TEBLinearSolver;
 
 //! Typedef for a container storing via-points
-typedef std::vector< Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d> > ViaPointContainer;
+typedef Eigen::Vector2d ViaPoint;
+typedef std::vector< ViaPoint, Eigen::aligned_allocator<Eigen::Vector2d> > ViaPointContainer;
 
 
 /**
@@ -542,6 +543,19 @@ protected:
   //@{
   
   /**
+   * @brief Move goal pose a little bit if it is blocked by obstacle
+   *
+   * If current goal pose is in conflict with an obstacle, this runs a pre-optimization
+   * problem consisting of a single VertexPose initialized with the last pose of the
+   * existing Teb that is not in conflict, an obstacle edge, and a ViaPoint edge
+   * that attracts the vertex to the nominal goal. This modified goal becomes the
+   * fixed goal pose of the main optimization graph. By re-using the previous result
+   * of this pre-adjustment when possible, we both improve stability of the solution
+   * and reduce CPU load.
+   */
+  bool preAdjustGoalIfBlocked();
+
+  /**
    * @brief Build the hyper-graph representing the TEB optimization problem.
    * 
    * This method creates the optimization problem according to the hyper-graph formulation. \n
@@ -723,6 +737,10 @@ protected:
 
   bool initialized_; //!< Keeps track about the correct initialization of this class
   bool optimized_; //!< This variable is \c true as long as the last optimization has been completed successful
+
+  bool preadjust_is_used_nominal_ = true;
+  PoseSE2 preadjust_prev_nominal_goal_;
+  PoseSE2 preadjust_prev_adjusted_goal_;
   
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW    
