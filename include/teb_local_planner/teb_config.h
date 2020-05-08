@@ -151,6 +151,7 @@ public:
     double obstacle_proximity_ratio_max_vel; //!< Ratio of the maximum velocities used as an upper bound when reducing the speed due to the proximity to a static obstacles
     double obstacle_proximity_lower_bound; //!< Distance to a static obstacle for which the velocity should be lower
     double obstacle_proximity_upper_bound; //!< Distance to a static obstacle for which the velocity should be higher
+    double min_nonlethal_obstacle_dist; //!< Minimum desired separation from non-lethal obstacles
   } obstacles; //!< Obstacle related parameters
 
 
@@ -190,6 +191,8 @@ public:
     double weight_left_right_inflation; //!< Optimization weight for the left/right inflation penalty (should be small)
     double left_inflation_cost_exponent; //!< Exponent for nonlinear left obstacle inflation cost (cost = left_inflation_dist * pow([fraction of possible inflation_cost], left_inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
     double right_inflation_cost_exponent; //!< Exponent for nonlinear right obstacle inflation cost (cost = right_inflation_dist * pow([fraction of possible inflation_cost], right_inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
+    double weight_nonlethal_obstacle; //!< Optimization weight for non-lethal obstacles (obstacles that are sensed but not lethal)
+    double nonlethal_obstacle_cost_exponent; //!< Exponent for nonlinear, nonlethal obstacle cost
   } optim; //!< Optimization related parameters
 
 
@@ -344,6 +347,7 @@ public:
     obstacles.obstacle_proximity_ratio_max_vel = 1;
     obstacles.obstacle_proximity_lower_bound = 0;
     obstacles.obstacle_proximity_upper_bound = 0.5;
+    obstacles.min_nonlethal_obstacle_dist = 0.1;
 
     // Optimization
 
@@ -377,6 +381,8 @@ public:
     optim.weight_left_right_inflation = 1.0;
     optim.left_inflation_cost_exponent = 1.0;
     optim.right_inflation_cost_exponent = 1.0;
+    optim.weight_nonlethal_obstacle = 1.0;
+    optim.nonlethal_obstacle_cost_exponent = 1.0;
 
     // Homotopy Class Planner
 

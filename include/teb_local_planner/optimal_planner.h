@@ -640,6 +640,11 @@ protected:
   void AddEdges3DCostmapLeftRight();
 
   /**
+   * @brief Add 3D costmap edges for nonlethal obstacles
+   */
+  void AddEdges3DCostmapNonlethalOnly();
+
+  /**
    * @brief Add all edges (local cost functions) related to minimizing the distance to via-points
    * @see EdgeViaPoint
    * @see buildGraph
