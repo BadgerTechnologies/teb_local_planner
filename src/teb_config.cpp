@@ -114,6 +114,7 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("first_left_right_pose", obstacles.first_left_right_pose, obstacles.first_left_right_pose);
   nh.param("last_left_right_pose", obstacles.last_left_right_pose, obstacles.last_left_right_pose);
   nh.param("left_right_skip_poses", obstacles.left_right_skip_poses, obstacles.left_right_skip_poses);
+  nh.param("min_nonlethal_obstacle_dist", obstacles.min_nonlethal_obstacle_dist, obstacles.min_nonlethal_obstacle_dist);
   
   // Optimization
   nh.param("no_inner_iterations", optim.no_inner_iterations, optim.no_inner_iterations);
@@ -144,6 +145,8 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("weight_left_right_inflation", optim.weight_left_right_inflation, optim.weight_left_right_inflation);
   nh.param("left_inflation_cost_exponent", optim.left_inflation_cost_exponent, optim.left_inflation_cost_exponent);
   nh.param("right_inflation_cost_exponent", optim.right_inflation_cost_exponent, optim.right_inflation_cost_exponent);
+  nh.param("weight_nonlethal_obstacle", optim.weight_nonlethal_obstacle, optim.weight_nonlethal_obstacle);
+  nh.param("nonlethal_obstacle_cost_exponent", optim.nonlethal_obstacle_cost_exponent, optim.nonlethal_obstacle_cost_exponent);
   
   // Homotopy Class Planner
   nh.param("enable_homotopy_class_planning", hcp.enable_homotopy_class_planning, hcp.enable_homotopy_class_planning); 
@@ -258,6 +261,7 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   obstacles.first_left_right_pose = cfg.first_left_right_pose;
   obstacles.last_left_right_pose = cfg.last_left_right_pose;
   obstacles.left_right_skip_poses = cfg.left_right_skip_poses;
+  obstacles.min_nonlethal_obstacle_dist = cfg.min_nonlethal_obstacle_dist;
 
   
   // Optimization
@@ -288,6 +292,8 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   optim.weight_left_right_inflation = cfg.weight_left_right_inflation;
   optim.left_inflation_cost_exponent = cfg.left_inflation_cost_exponent;
   optim.right_inflation_cost_exponent = cfg.right_inflation_cost_exponent;
+  optim.weight_nonlethal_obstacle = cfg.weight_nonlethal_obstacle;
+  optim.nonlethal_obstacle_cost_exponent = cfg.nonlethal_obstacle_cost_exponent;
   
   // Homotopy Class Planner
   hcp.enable_multithreading = cfg.enable_multithreading;

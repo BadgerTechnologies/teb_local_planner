@@ -144,6 +144,7 @@ public:
     int first_left_right_pose; //!< First pose to attach left/right edges.
     int last_left_right_pose; //!< Last pose to attach left/right edges.
     int left_right_skip_poses; //!< Skip this many poses when adding left/right edges
+    double min_nonlethal_obstacle_dist; //!< Minimum desired separation from non-lethal obstacles
   } obstacles; //!< Obstacle related parameters
 
 
@@ -182,6 +183,8 @@ public:
     double weight_left_right_inflation; //!< Optimization weight for the left/right inflation penalty (should be small)
     double left_inflation_cost_exponent; //!< Exponent for nonlinear left obstacle inflation cost (cost = left_inflation_dist * pow([fraction of possible inflation_cost], left_inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
     double right_inflation_cost_exponent; //!< Exponent for nonlinear right obstacle inflation cost (cost = right_inflation_dist * pow([fraction of possible inflation_cost], right_inflation_cost_exponent)). Set to 1 to disable nonlinear cost (default)
+    double weight_nonlethal_obstacle; //!< Optimization weight for non-lethal obstacles (obstacles that are sensed but not lethal)
+    double nonlethal_obstacle_cost_exponent; //!< Exponent for nonlinear, nonlethal obstacle cost
   } optim; //!< Optimization related parameters
 
 
@@ -330,6 +333,7 @@ public:
     obstacles.first_left_right_pose = 0;
     obstacles.last_left_right_pose = 0;
     obstacles.left_right_skip_poses = 0;
+    obstacles.min_nonlethal_obstacle_dist = 0.1;
 
     // Optimization
 
@@ -362,6 +366,8 @@ public:
     optim.weight_left_right_inflation = 1.0;
     optim.left_inflation_cost_exponent = 1.0;
     optim.right_inflation_cost_exponent = 1.0;
+    optim.weight_nonlethal_obstacle = 1.0;
+    optim.nonlethal_obstacle_cost_exponent = 1.0;
 
     // Homotopy Class Planner
 

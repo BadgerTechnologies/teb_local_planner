@@ -485,6 +485,8 @@ bool TebOptimalPlanner::buildGraph(double weight_multiplier)
   AddEdges3DCostmap(weight_multiplier);
 
   AddEdges3DCostmapLeftRight();
+
+  AddEdges3DCostmapNonlethalOnly();
   
   AddEdgesViaPoints();
   
@@ -1109,6 +1111,30 @@ void TebOptimalPlanner::AddEdges3DCostmapLeftRight()
                        i,
                        cfg_->obstacles.right_inflation_dist,
                        cfg_->optim.right_inflation_cost_exponent);
+}
+
+void TebOptimalPlanner::AddEdges3DCostmapNonlethalOnly()
+{
+  if (!costmap_3d_query_)
+    return;
+
+  // Nothing to do when the final result will always be zero
+  if (cfg_->optim.weight_nonlethal_obstacle == 0.0)
+    return;
+
+  Eigen::Matrix<double,1,1> information;
+  information(0,0) = cfg_->optim.weight_nonlethal_obstacle;
+
+  for (int i=1; i < teb_.sizePoses()-1; ++i)
+  {
+    Edge3DCostmapNonlethalOnly* edge = new Edge3DCostmapNonlethalOnly(
+        costmap_3d_query_,
+        cfg_->obstacles.min_nonlethal_obstacle_dist,
+        cfg_->optim.nonlethal_obstacle_cost_exponent);
+    edge->setVertex(0, teb_.PoseVertex(i));
+    edge->setInformation(information);
+    optimizer_->addEdge(edge);
+  };
 }
 
 void TebOptimalPlanner::AddEdgesTimeOptimal()
