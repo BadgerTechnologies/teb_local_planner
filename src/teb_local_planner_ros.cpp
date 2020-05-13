@@ -364,8 +364,11 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
   else
     updateObstacleContainerWithCostmap();
   
-  // update costmap 3D query
-  costmap_3d_ros_->updateBufferedQuery(costmap_3d_query_);
+  if (costmap_3d_ros_ != nullptr)
+  {
+    // update costmap 3D query
+    costmap_3d_ros_->updateBufferedQuery(costmap_3d_query_);
+  }
 
   // also consider custom obstacles (must be called after other updates, since the container is not cleared)
   updateObstacleContainerWithCustomObstacles();
