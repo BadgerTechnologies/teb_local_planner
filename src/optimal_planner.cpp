@@ -258,7 +258,9 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
       }
     }
     // No open pose found. Just return the furthest one back (the robot's current pose)
-    return teb_.Pose(0);
+    PoseSE2 first_pose = teb_.Pose(0);
+    first_pose.theta() = nominal_goal.theta();
+    return first_pose;
   };
 
   if (!costmap_3d_query_ || teb_.sizePoses() < 1) // We depend on 3D costmap
