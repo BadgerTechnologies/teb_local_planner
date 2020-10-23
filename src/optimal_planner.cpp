@@ -191,7 +191,18 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
     if (!(distFromNominalGoal(preadjust_prev_nominal_goal_) < cfg_->recovery.preadjust_stability_nominal_goal_change_dist))
     {
       // Reset with new nominal goal
-      ROS_DEBUG_STREAM("Preadjust Goal: Reset because nominal goal changed. Dist from old goal: " << distFromNominalGoal(preadjust_prev_nominal_goal_));
+      if (preadjust_prev_nominal_goal_.x() != 0.0
+          && preadjust_prev_nominal_goal_.y() != 0.0
+          && preadjust_prev_nominal_goal_.theta() != 0.0)
+      {
+        ROS_DEBUG_STREAM("Preadjust Goal: Reset because nominal goal changed. Nom goal: " << teb_.nominalGoal()
+                         << " Prev nom goal: " << preadjust_prev_nominal_goal_
+                         << " dist: " << distFromNominalGoal(preadjust_prev_nominal_goal_));
+      }
+      else
+      {
+        ROS_DEBUG_STREAM("Preadjust Goal: Reset because there is no prev. Nom goal: " << teb_.nominalGoal());
+      }
       preadjust_prev_adjusted_goal_ = preadjust_prev_nominal_goal_ = teb_.nominalGoal();
     }
     else
@@ -238,6 +249,8 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
       teb_.BackPose() = prev_goal;
       return true;
     }
+    ROS_DEBUG_STREAM("Not using prev adj goal. prev_obst_dist=" << prev_obst_dist
+                     << " distFromNominalGoal=" << distFromNominalGoal(prev_goal));
     return false;
   };
 
@@ -253,13 +266,16 @@ bool TebOptimalPlanner::preAdjustGoalIfBlocked()
       double obst_dist = obstacleDistance(test_pose);
       if (obst_dist > 0.0)
       {
-        ROS_DEBUG("Free Pose Found %d poses back. dist: %lf", teb_.sizePoses() - 1 - i, obst_dist);
+        ROS_DEBUG_STREAM("Free Pose Found " << teb_.sizePoses() - 1 - i
+                         << " poses back. dist: " << obst_dist
+                         << " Pose: " << test_pose);
         return test_pose;
       }
     }
     // No open pose found. Just return the furthest one back (the robot's current pose)
     PoseSE2 first_pose = teb_.Pose(0);
     first_pose.theta() = nominal_goal.theta();
+    ROS_DEBUG_STREAM("Free pose NOT FOUND. Using first pose: " << first_pose);
     return first_pose;
   };
 
