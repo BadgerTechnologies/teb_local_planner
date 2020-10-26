@@ -477,7 +477,7 @@ PoseSE2 slerp_pose(const PoseSE2& p1, const PoseSE2& p2, double fraction)
 {
   Eigen::Vector2d displacement = p2.position() - p1.position();
   double bearing = g2o::normalize_theta(atan2(displacement[1], displacement[0]) - p1.theta());
-  if (std::abs(bearing) < 1e-4 || std::abs(bearing - M_PI/2) < 1e-4)
+  if (std::abs(bearing) < 1e-4 || std::abs(bearing) - M_PI < 1e-4)
   {
     return slerp_line(p1, p2, fraction);
   }
