@@ -449,7 +449,7 @@ static PoseSE2 slerp_line(const PoseSE2& p1, const PoseSE2& p2, double fraction)
   PoseSE2 new_pos;
   Eigen::Vector2d deltaPos = p2.position() - p1.position();
   new_pos.position() = p1.position() + (deltaPos * fraction);
-  double deltaTheta = p2.theta() - p1.theta(); // Doesn't need to be normalized yet
+  double deltaTheta = g2o::normalize_theta(p2.theta() - p1.theta());
   new_pos.theta() = g2o::normalize_theta(p1.theta() + (deltaTheta * fraction));
   return new_pos;
 }
