@@ -37,6 +37,7 @@
  *********************************************************************/
 
 #include <cassert>
+#include <cmath>
 #include <limits>
 #include <ros/time.h>
 #include <teb_local_planner/teb_local_planner_ros.h>
@@ -559,6 +560,7 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
   // to a "carrot pose" a short amount of time ahead of the robot on the plan.
   double dt = cfg_.control.carrot_dt;
   Eigen::Vector2d delta_carrot;
+  double delta_theta;
   PoseSE2 carrot_pose;
   double robot_time = findRobotTimeInPlan(*teb, robot_pose, 0.0, 6.0, 0.01);
   bool is_target_at_goal = false;
@@ -568,7 +570,10 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
   {
     carrot_pose = interpolatePath(*teb, robot_time + dt);
     delta_carrot = carrot_pose.position() - robot_pose.position();
+    delta_theta = g2o::normalize_theta(carrot_pose.theta() - robot_pose.theta());
     if (delta_carrot.norm() > cfg_.control.carrot_min_dist)
+      break;
+    if (fabs(delta_theta) > cfg_.control.carrot_min_angle)
       break;
     if (carrot_pose.position() == teb->BackPose().position())
     {
@@ -587,22 +592,34 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
     debug_control_pose_pub_.publish(debug_pose);
   }
 
-  // When we're at the goal position, switch to simple "turn-in-place P-controller" to get
-  // oriented with the goal.
-  if (is_target_at_goal && delta_carrot.norm() < std::min(cfg_.control.turn_in_place_goal_dist,
-                                                          cfg_.goal_tolerance.xy_goal_tolerance))
+  if (delta_carrot.norm() < std::min(cfg_.control.turn_in_place_dist,
+                                     cfg_.goal_tolerance.xy_goal_tolerance))
   {
+    bool robot_at_goal = false;
     cmd_vel.linear.x = 0.0;
-    double delta_theta = g2o::normalize_theta(carrot_pose.theta() - robot_pose.theta());
-    if (fabs(delta_theta) > cfg_.goal_tolerance.yaw_goal_tolerance)
+    cmd_vel.angular.z = delta_theta / dt;
+    if (is_target_at_goal)
     {
-      cmd_vel.angular.z = cfg_.control.turn_in_place_Kp
-          * g2o::sign(delta_theta)
-          * std::max((double)fabs(delta_theta), cfg_.control.turn_in_place_min_vel_theta);
+      // When we're at the goal position, use a simple "turn-in-place
+      // P-controller" to get oriented with the goal. Because dt is at least
+      // carrot_dt, the radial velocity will shrink as we aproach the goal.
+      // Control how fast we approach with turn_in_place_Kp.
+      if (fabs(delta_theta) >= cfg_.goal_tolerance.yaw_goal_tolerance)
+      {
+        cmd_vel.angular.z *= cfg_.control.turn_in_place_Kp;
+      }
+      else
+      {
+        robot_at_goal = true;
+      }
     }
-    else
+    if (robot_at_goal)
     {
       cmd_vel.angular.z = 0.0;
+    }
+    else if (fabs(cmd_vel.angular.z) < cfg_.control.turn_in_place_min_vel_theta)
+    {
+      cmd_vel.angular.z = std::copysign(cfg_.control.turn_in_place_min_vel_theta, cmd_vel.angular.z);
     }
   }
   else
