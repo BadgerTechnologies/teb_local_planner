@@ -107,8 +107,9 @@ public:
   struct ControlLaw
   {
     double carrot_dt; //!< (seconds) Look this many seconds ahead of the robot on the plan to choose a carrot pose for control law
-    double carrot_min_dist; //!< (meters) If carrot pose is closer than this minimum distance, teporarily increase carrot_dt until it is is this far away (or we reach end of plan)
-    double turn_in_place_goal_dist; //!< (meters) When robot is within the minimum of this distance and the xy_goal_tolerance, switch to turn-in-place control law to finish the goal
+    double carrot_min_dist; //!< (meters) If carrot pose is closer than this minimum distance and carrot_min_angle, temporarily increase carrot_dt until it is is this far away or we reach min_carrot_angle (or end of plan)
+    double carrot_min_angle; //!< (radians) If carrot pose is closer than this minimum angle and carrot_min_dist, temporarily increase carrot_dt until it is is this far away or we reach min_carrot_dist (or end of plan)
+    double turn_in_place_carrot_dist; //!< (meters) When carrot pose is within the minimum of this distance and the xy_goal_tolerance, switch to turn-in-place control law
     double turn_in_place_Kp; //!< Proportional gain when turning in place
     double turn_in_place_min_vel_theta; //!< (rad/s) Min rotation speed when turning in place. In case motors have a minimum speed
   } control; //!< Control-related parameters
@@ -301,7 +302,8 @@ public:
     // Control Law
     control.carrot_dt = 0.4;
     control.carrot_min_dist = 0.04;
-    control.turn_in_place_goal_dist = 10.0;  // Default disabled. Uses xy_goal_tolerance since it is smaller.
+    control.carrot_min_angle = 0.2;
+    control.turn_in_place_carrot_dist = 0.04;
     control.turn_in_place_Kp = 1.0;
     control.turn_in_place_min_vel_theta = 0.0;
 

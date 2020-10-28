@@ -37,6 +37,7 @@
  *********************************************************************/
 
 #include <cassert>
+#include <cmath>
 #include <limits>
 #include <ros/time.h>
 #include <teb_local_planner/teb_local_planner_ros.h>
@@ -558,7 +559,8 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
   // First, we must convert the plan (series of poses & timediffs) into the vector from the robot
   // to a "carrot pose" a short amount of time ahead of the robot on the plan.
   double dt = cfg_.control.carrot_dt;
-  Eigen::Vector2d delta_carrot;
+  Eigen::Vector2d delta_carrot_position;
+  double delta_carrot_angle;
   PoseSE2 carrot_pose;
   double robot_time = findRobotTimeInPlan(*teb, robot_pose, 0.0, 6.0, 0.01);
   bool is_target_at_goal = false;
@@ -567,8 +569,11 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
   for (;;)
   {
     carrot_pose = interpolatePath(*teb, robot_time + dt);
-    delta_carrot = carrot_pose.position() - robot_pose.position();
-    if (delta_carrot.norm() > cfg_.control.carrot_min_dist)
+    delta_carrot_position = carrot_pose.position() - robot_pose.position();
+    delta_carrot_angle = g2o::normalize_theta(carrot_pose.theta() - robot_pose.theta());
+    if (delta_carrot_position.norm() > cfg_.control.carrot_min_dist)
+      break;
+    if (fabs(delta_carrot_angle) > cfg_.control.carrot_min_angle)
       break;
     if (carrot_pose.position() == teb->BackPose().position())
     {
@@ -587,37 +592,49 @@ bool TebLocalPlannerROS::getVelocityCommand(geometry_msgs::Twist& cmd_vel)
     debug_control_pose_pub_.publish(debug_pose);
   }
 
-  // When we're at the goal position, switch to simple "turn-in-place P-controller" to get
-  // oriented with the goal.
-  if (is_target_at_goal && delta_carrot.norm() < std::min(cfg_.control.turn_in_place_goal_dist,
-                                                          cfg_.goal_tolerance.xy_goal_tolerance))
+  if (delta_carrot_position.norm() < std::min(cfg_.control.turn_in_place_carrot_dist,
+                                              cfg_.goal_tolerance.xy_goal_tolerance))
   {
+    bool robot_at_goal = false;
     cmd_vel.linear.x = 0.0;
-    double delta_theta = g2o::normalize_theta(carrot_pose.theta() - robot_pose.theta());
-    if (fabs(delta_theta) > cfg_.goal_tolerance.yaw_goal_tolerance)
+    cmd_vel.angular.z = delta_carrot_angle / dt;
+    if (is_target_at_goal)
     {
-      cmd_vel.angular.z = cfg_.control.turn_in_place_Kp
-          * g2o::sign(delta_theta)
-          * std::max((double)fabs(delta_theta), cfg_.control.turn_in_place_min_vel_theta);
+      // When we're at the goal position, use a simple "turn-in-place
+      // P-controller" to get oriented with the goal. Because dt is at least
+      // carrot_dt, the radial velocity will shrink as we aproach the goal.
+      // Control how fast we approach with turn_in_place_Kp.
+      if (fabs(delta_carrot_angle) >= cfg_.goal_tolerance.yaw_goal_tolerance)
+      {
+        cmd_vel.angular.z *= cfg_.control.turn_in_place_Kp;
+      }
+      else
+      {
+        robot_at_goal = true;
+      }
     }
-    else
+    if (robot_at_goal)
     {
       cmd_vel.angular.z = 0.0;
+    }
+    else if (fabs(cmd_vel.angular.z) < cfg_.control.turn_in_place_min_vel_theta)
+    {
+      cmd_vel.angular.z = std::copysign(cfg_.control.turn_in_place_min_vel_theta, cmd_vel.angular.z);
     }
   }
   else
   {
     // Normal case. Use the main control law.
-    Eigen::Vector2d targetVel = delta_carrot / dt;
+    Eigen::Vector2d targetVel = delta_carrot_position / dt;
 
     // In the GA Tech class, the control point displacement is a fixed parameter l. But, since the
     // distance to the carrot pose is variable, and it will not work if the carrot is behind the
     // control point, we'll always use half-the distance to the carrot pose as our displacement.
-    double ctrl_point_displacement = delta_carrot.norm() / 2.0;
+    double ctrl_point_displacement = delta_carrot_position.norm() / 2.0;
 
     // If carrot pose is oriented oppositely from direction of travel required to reach it, then
     // the plan is calling for backward travel. So control point must be behind center of bot.
-    double bearing = atan2(delta_carrot[1], delta_carrot[0]);
+    double bearing = atan2(delta_carrot_position[1], delta_carrot_position[0]);
     if (fabs(g2o::normalize_theta(carrot_pose.theta() - bearing)) > M_PI/2)
     {
       ctrl_point_displacement *= -1.0;

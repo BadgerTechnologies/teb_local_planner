@@ -84,7 +84,8 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   // Control Law
   nh.param("carrot_dt", control.carrot_dt, control.carrot_dt);
   nh.param("carrot_min_dist", control.carrot_min_dist, control.carrot_min_dist);
-  nh.param("turn_in_place_goal_dist", control.turn_in_place_goal_dist, control.turn_in_place_goal_dist);
+  nh.param("carrot_min_angle", control.carrot_min_angle, control.carrot_min_angle);
+  nh.param("turn_in_place_carrot_dist", control.turn_in_place_carrot_dist, control.turn_in_place_carrot_dist);
   nh.param("turn_in_place_Kp", control.turn_in_place_Kp, control.turn_in_place_Kp);
   nh.param("turn_in_place_min_vel_theta", control.turn_in_place_min_vel_theta, control.turn_in_place_min_vel_theta);
 
@@ -236,7 +237,8 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   // Control Law
   control.carrot_dt = cfg.carrot_dt;
   control.carrot_min_dist = cfg.carrot_min_dist;
-  control.turn_in_place_goal_dist = cfg.turn_in_place_goal_dist;
+  control.carrot_min_angle = cfg.carrot_min_angle;
+  control.turn_in_place_carrot_dist = cfg.turn_in_place_carrot_dist;
   control.turn_in_place_Kp = cfg.turn_in_place_Kp;
   control.turn_in_place_min_vel_theta = cfg.turn_in_place_min_vel_theta;
 
