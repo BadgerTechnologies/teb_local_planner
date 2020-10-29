@@ -469,7 +469,8 @@ static PoseSE2 slerp_arc(const PoseSE2& p1, const PoseSE2& p2, double bearing, d
   rot_affine.rotate(angle);
   Eigen::Matrix2d rot_matrix = rot_affine.matrix().block(0, 0, 2, 2);
   result.position() = rot_matrix * (pos1 - center) + center;
-  result.theta() = g2o::normalize_theta(p1.theta() + angle);
+  double deltaTheta = g2o::normalize_theta(p2.theta() - p1.theta());
+  result.theta() = g2o::normalize_theta(p1.theta() + (deltaTheta * fraction));
   return result;
 }
 
