@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # This small script subscribes to the FeedbackMsg message of teb_local_planner
 # and plots the current velocity.

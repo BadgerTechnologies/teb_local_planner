@@ -227,7 +227,7 @@ target_link_libraries(test_optim_node
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-install(PROGRAMS
+catkin_install_python(PROGRAMS
   scripts/cmd_vel_to_ackermann_drive.py
   scripts/export_to_mat.py
   scripts/export_to_svg.py
