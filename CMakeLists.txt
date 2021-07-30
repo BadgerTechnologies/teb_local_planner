@@ -62,19 +62,19 @@ set(EXTERNAL_LIBS ${SUITESPARSE_LIBRARIES} ${G2O_LIBRARIES})
 ## we cannot compile without c++11 enabled. Another option would be to downgrade  
 ## libg2o third-party package.
 ## By now, if you do not want c++11, please refer to the ros indigo version.
-IF(NOT MSVC)
-  include(CheckCXXCompilerFlag)
-  CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-  CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
-if(COMPILER_SUPPORTS_CXX11)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-elseif(COMPILER_SUPPORTS_CXX0X)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
-else()
-  message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support which is required 
-  by linked third party packages starting from ROS Jade. Ignore this message for ROS Indigo.")
-endif()
-endif()
+# IF(NOT MSVC)
+#   include(CheckCXXCompilerFlag)
+#   CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+#   CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+# if(COMPILER_SUPPORTS_CXX11)
+#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+# elseif(COMPILER_SUPPORTS_CXX0X)
+#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+# else()
+#   message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support which is required
+#   by linked third party packages starting from ROS Jade. Ignore this message for ROS Indigo.")
+# endif()
+# endif()
 
 ################################################
 ## Declare ROS messages, services and actions ##
