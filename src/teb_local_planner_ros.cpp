@@ -407,7 +407,7 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
                       << " dtheta: " << delta_adjusted.theta()
                       << " Dist orig goal: " << fabs(std::sqrt(dx*dx+dy*dy)));
       goal_reached_ = true;
-      return true;
+      return mbf_msgs::ExePathResult::SUCCESS;
     }
   }
 
@@ -466,7 +466,7 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
   
   // Now visualize everything    
   visualize(visualization_);
-  return true;
+  return mbf_msgs::ExePathResult::SUCCESS;
 }
 
 static PoseSE2 slerp_line(const PoseSE2& p1, const PoseSE2& p2, double fraction)
