@@ -172,6 +172,7 @@ bool TimedElasticBand::initTrajectoryToGoal(BidirIter path_start, BidirIter path
       // now add goal
       addPoseAndTimeDiff(goal, timestep); // add goal point
       setPoseVertexFixed(sizePoses()-1,true); // GoalConf is a fixed constraint during optimization
+      nominal_goal_ = goal;  // Remember the initial pose since vertex pose is now allowed to change.
     }
     else // size!=0
     {
