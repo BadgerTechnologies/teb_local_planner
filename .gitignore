@@ -1,3 +1,11 @@
 .svn
 .kdev4
 *.kdev4
+
+# Symlinks created by Yocto when using externalsrc.bbclass
+oe-logs
+oe-workdir
+
+# Created or used by the clangd language server for C++
+compile_commands.json
+.cache/clangd/
