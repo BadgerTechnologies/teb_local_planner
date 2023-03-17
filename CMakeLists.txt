@@ -60,7 +60,7 @@ set(EXTERNAL_LIBS ${SUITESPARSE_LIBRARIES} ${G2O_LIBRARIES})
 ## C++11 support
 ## Unfortunately, the 3d-party dependency libg2o requires c++11 starting from ROS Jade.
 ## Even if the ROS Jade specifications do not want c++11-only packages,
-## we cannot compile without c++11 enabled. Another option would be to downgrade  
+## we cannot compile without c++11 enabled. Another option would be to downgrade
 ## libg2o third-party package.
 ## By now, if you do not want c++11, please refer to the ros indigo version.
 # IF(NOT MSVC)
@@ -270,10 +270,14 @@ install(DIRECTORY
 #############
 
 if (CATKIN_ENABLE_TESTING)
-  catkin_add_gtest(test_teb_basics test/teb_basics.cpp)
+  find_package(badger_test_lib)
+  badger_add_rostest_gtest(test_teb_basics
+                           test/test_teb_basics.test
+                           test/teb_basics.cpp)
   if(TARGET test_teb_basics)
      target_link_libraries(test_teb_basics teb_local_planner)
   endif()
+  badger_generate_test_script()
 endif()
 
 ## Add gtest based cpp test target and link libraries

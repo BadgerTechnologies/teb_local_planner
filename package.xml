@@ -3,13 +3,13 @@
   <name>teb_local_planner</name>
 
   <version>0.9.1</version>
-  
+
   <description>
     The teb_local_planner package implements a plugin
     to the base_local_planner of the 2D navigation stack.
     The underlying method called Timed Elastic Band locally optimizes
     the robot's trajectory with respect to trajectory execution time,
-    separation from obstacles and compliance with kinodynamic constraints at runtime.	
+    separation from obstacles and compliance with kinodynamic constraints at runtime.
   </description>
 
 
@@ -27,10 +27,11 @@
   <build_depend>message_generation</build_depend>
   <build_depend>tf2_eigen</build_depend>
   <build_depend>tf2_geometry_msgs</build_depend>
-  
+  <build_depend>badger_test_lib</build_depend>
+
   <build_export_depend>message_runtime</build_export_depend>
   <exec_depend>message_runtime</exec_depend>
-  
+
   <depend>base_local_planner</depend>
   <depend>costmap_2d</depend>
   <depend>costmap_3d</depend>

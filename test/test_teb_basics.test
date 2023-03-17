@@ -1,0 +1,3 @@
+<launch>
+  <test test-name="test_teb_basics" pkg="teb_local_planner" type="test_teb_basics"/>
+</launch>
