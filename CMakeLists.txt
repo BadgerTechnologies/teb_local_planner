@@ -270,10 +270,12 @@ install(DIRECTORY
 #############
 
 if (CATKIN_ENABLE_TESTING)
-  catkin_add_gtest(test_teb_basics test/teb_basics.cpp)
+  find_package(badger_test_lib)
+  badger_add_gtest(test_teb_basics test/teb_basics.cpp)
   if(TARGET test_teb_basics)
      target_link_libraries(test_teb_basics teb_local_planner)
   endif()
+  badger_generate_test_script()
 endif()
 
 ## Add gtest based cpp test target and link libraries

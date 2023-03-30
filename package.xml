@@ -23,6 +23,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <build_depend>badger_test_lib</build_depend>
   <build_depend>cmake_modules</build_depend>
   <build_depend>message_generation</build_depend>
   <build_depend>tf2_eigen</build_depend>
