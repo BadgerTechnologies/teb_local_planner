@@ -377,6 +377,21 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
     
   // Do not allow config changes during the following optimization step
   boost::mutex::scoped_lock cfg_lock(cfg_.configMutex());
+
+  if (costmap_3d_query_)
+  {
+    // update costmap 3D query config
+    costmap_3d_query_->setCacheBinSize(
+        cfg_.obstacles.costmap_3d_cache_bins_per_meter,
+        cfg_.obstacles.costmap_3d_cache_bins_per_rotation,
+        cfg_.obstacles.costmap_3d_milli_cache_bins_per_meter,
+        cfg_.obstacles.costmap_3d_milli_cache_bins_per_rotation,
+        cfg_.obstacles.costmap_3d_micro_cache_bins_per_meter,
+        cfg_.obstacles.costmap_3d_micro_cache_bins_per_rotation);
+    costmap_3d_query_->setCacheThresholdParameters(
+        true,  // TeB is always a 2D planner
+        cfg_.obstacles.costmap_3d_cache_threshold_factor);
+  }
     
   // Now perform the actual planning
 //   bool success = planner_->plan(robot_pose_, robot_goal_, robot_vel_, cfg_.goal_tolerance.free_goal_vel); // straight line init

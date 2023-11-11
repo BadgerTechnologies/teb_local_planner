@@ -141,6 +141,16 @@ public:
     int obstacle_poses_affected; //!< The obstacle position is attached to the closest pose on the trajectory to reduce computational effort, but take a number of neighbors into account as well
     bool legacy_obstacle_association; //!< If true, the old association strategy is used (for each obstacle, find the nearest TEB pose), otherwise the new one (for each teb pose, find only "relevant" obstacles).
     bool use_costmap_3d; //<! If true, attempt to use the Costmap3DROS for obstacle distance and feasibility checks (if the costmap in use is not dynamic-castable to a Costmap3DROS, does nothing)
+    int costmap_3d_cache_bins_per_meter; //<! Costmap3DQuery cache bins per meter
+    int costmap_3d_cache_bins_per_rotation; //<! Costmap3DQuery cache bins per rotation
+    int costmap_3d_milli_cache_bins_per_meter; //<! Costmap3DQuery milli cache bins per meter
+    int costmap_3d_milli_cache_bins_per_rotation; //<! Costmap3DQuery milli cache bins per rotation
+    int costmap_3d_micro_cache_bins_per_meter; //<! Costmap3DQuery micro cache bins per meter
+    int costmap_3d_micro_cache_bins_per_rotation; //<! Costmap3DQuery micro cache bins per rotation
+    double costmap_3d_distance_relative_error; //<!  Costmap3DQuery distance query allowed relative error factor. Zero means no relative error allowed, one means to use the very first distance found (100% relative error). A value between zero and one means to keep searching if the potential improvement in the distance query is more than the given factor relative to the current distance.
+    double costmap_3d_cache_threshold_factor; //<! Costmap3DQuery cache threshold factor to increase cache thresholds. The higher this is the less useful the caches are but the more accurate the queries
+    bool costmap_3d_directly_use_cache_when_above_threshold; //<! Costmap3DQuery will directly use the cache when above the cache threshold given by the factor above. Enabling this speeds up the distance query at the expense of absolute error up to the resolution of the cache that was hit (either the milli or micro cache, the normal cache is never used this way).
+    bool costmap_3d_directly_use_cache_when_below_threshold; //<!  Costmap3DQuery will directly use the cache when above the cache threshold given by the factor above. Enabling this speeds up the distance query at the expense of absolute error up to the resolution of the cache that was hit (either the milli or micro cache, the normal cache is never used this way).
     double obstacle_association_force_inclusion_factor; //!< The non-legacy obstacle association technique tries to connect only relevant obstacles with the discretized trajectory during optimization, all obstacles within a specifed distance are forced to be included (as a multiple of min_obstacle_dist), e.g. choose 2.0 in order to consider obstacles within a radius of 2.0*min_obstacle_dist.
     double obstacle_association_cutoff_factor; //!< See obstacle_association_force_inclusion_factor, but beyond a multiple of [value]*min_obstacle_dist all obstacles are ignored during optimization. obstacle_association_force_inclusion_factor is processed first.
     std::string costmap_converter_plugin; //!< Define a plugin name of the costmap_converter package (costmap cells are converted to points/lines/polygons)
@@ -338,6 +348,16 @@ public:
     obstacles.obstacle_poses_affected = 25;
     obstacles.legacy_obstacle_association = false;
     obstacles.use_costmap_3d = false;
+    obstacles.costmap_3d_cache_bins_per_meter = 4;
+    obstacles.costmap_3d_cache_bins_per_rotation = 25;
+    obstacles.costmap_3d_milli_cache_bins_per_meter = 20;
+    obstacles.costmap_3d_milli_cache_bins_per_rotation = 125;
+    obstacles.costmap_3d_micro_cache_bins_per_meter = 100;
+    obstacles.costmap_3d_micro_cache_bins_per_rotation = 628;
+    obstacles.costmap_3d_distance_relative_error = .05;
+    obstacles.costmap_3d_cache_threshold_factor = 1.05;
+    obstacles.costmap_3d_directly_use_cache_when_above_threshold = true;
+    obstacles.costmap_3d_directly_use_cache_when_below_threshold = false;
     obstacles.obstacle_association_force_inclusion_factor = 1.5;
     obstacles.obstacle_association_cutoff_factor = 5;
     obstacles.costmap_converter_plugin = "";

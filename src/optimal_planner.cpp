@@ -1153,6 +1153,7 @@ void TebOptimalPlanner::AddEdges3DCostmapNonlethalOnly()
         cfg_->optim.nonlethal_obstacle_cost_exponent);
     edge->setVertex(0, teb_.PoseVertex(i));
     edge->setInformation(information);
+    edge->setTebConfig(*cfg_);
     optimizer_->addEdge(edge);
   };
 }

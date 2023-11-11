@@ -92,6 +92,9 @@ public:
     pose.toPoseMsg(pose_msg);
 
     costmap_3d::Costmap3DQuery::DistanceOptions dopts;
+    dopts.relative_error = cfg_->obstacles.costmap_3d_distance_relative_error;
+    dopts.directly_use_cache_when_above_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_above_threshold;
+    dopts.directly_use_cache_when_below_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_below_threshold;
     dopts.reuse_past_result = reuse_results;
     dopts.signed_distance = true;
     dopts.query_obstacles = costmap_3d::Costmap3DQuery::NONLETHAL_ONLY;

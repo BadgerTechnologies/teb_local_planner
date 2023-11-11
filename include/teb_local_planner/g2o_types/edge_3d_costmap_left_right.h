@@ -92,7 +92,14 @@ public:
     geometry_msgs::Pose pose_msg;
     pose.toPoseMsg(pose_msg);
 
-    double dist = costmap_3d_query_->footprintDistance(pose_msg, region_, reuse_results);
+    costmap_3d::Costmap3DQuery::DistanceOptions dopts;
+    dopts.relative_error = cfg_->obstacles.costmap_3d_distance_relative_error;
+    dopts.directly_use_cache_when_above_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_above_threshold;
+    dopts.directly_use_cache_when_below_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_below_threshold;
+    dopts.reuse_past_result = reuse_results;
+    dopts.signed_distance = true;
+    dopts.query_region = region_;
+    double dist = costmap_3d_query_->footprintDistance(pose_msg, dopts);
 
     // For left/right edges, make derivative zero inside the region normal
     // obstacles have influence. This prevents destabalizing a TeB that must
