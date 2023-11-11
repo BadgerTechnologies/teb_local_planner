@@ -81,11 +81,16 @@ public:
   {
   }
 
-  inline void computeErrorImpl(bool reuse_results=false)
+  inline void computeErrorImpl(bool reuse_results=false, const double* plus=nullptr)
   {
     const VertexPose* vertex_pose = static_cast<const VertexPose*>(_vertices[0]);
+    PoseSE2 pose(vertex_pose->pose());
+    if (plus)
+    {
+      pose.plus(plus);
+    }
     geometry_msgs::Pose pose_msg;
-    vertex_pose->pose().toPoseMsg(pose_msg);
+    pose.toPoseMsg(pose_msg);
 
     double dist = costmap_3d_query_->footprintDistance(pose_msg, region_, reuse_results);
 
@@ -118,10 +123,6 @@ public:
     if (vi->fixed())
       return;
 
-#ifdef G2O_OPENMP
-    vi->lockQuadraticForm();
-#endif
-
     const double delta = 1e-5;
     const double scalar = 1.0 / (delta);
     // calculate the derivative to the base pose each time, reducing total queries
@@ -132,12 +133,9 @@ public:
     std::fill(add_vi, add_vi + VertexPose::Dimension, 0.0);
     // add small step along the unit vector in each dimension
     for (int d = 0; d < VertexPose::Dimension; ++d) {
-      vi->push();
       add_vi[d] = delta;
-      vi->oplus(add_vi);
       // reuse the previous calculation to save time estimating the derivative
-      computeErrorImpl(true);
-      vi->pop();
+      computeErrorImpl(true, add_vi);
       add_vi[d] = 0.0;
 
       _jacobianOplusXi.col(d) = scalar * (_error - errorBeforeNumeric);
