@@ -91,14 +91,21 @@ public:
     geometry_msgs::Pose pose_msg;
     pose.toPoseMsg(pose_msg);
 
-    costmap_3d::Costmap3DQuery::DistanceOptions dopts;
-    dopts.relative_error = cfg_->obstacles.costmap_3d_distance_relative_error;
-    dopts.directly_use_cache_when_above_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_above_threshold;
-    dopts.directly_use_cache_when_below_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_below_threshold;
-    dopts.reuse_past_result = reuse_results;
-    dopts.signed_distance = true;
-    dopts.query_obstacles = costmap_3d::Costmap3DQuery::NONLETHAL_ONLY;
-    double signed_dist = costmap_3d_query_->footprintDistance(pose_msg, dopts);
+    double signed_dist;
+    if (!reuse_results)
+    {
+      costmap_3d::Costmap3DQuery::DistanceOptions dopts;
+      dopts.relative_error = cfg_->obstacles.costmap_3d_distance_relative_error;
+      dopts.directly_use_cache_when_above_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_above_threshold;
+      dopts.directly_use_cache_when_below_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_below_threshold;
+      dopts.signed_distance = true;
+      dopts.query_obstacles = costmap_3d::Costmap3DQuery::NONLETHAL_ONLY;
+      signed_dist = costmap_3d_query_->footprintDistance(pose_msg, dopts, &last_result_);
+    }
+    else
+    {
+      signed_dist = costmap_3d_query_->footprintDistance(pose_msg, last_result_);
+    }
 
     _error[0] = penaltyBoundFromBelow(signed_dist, min_obstacle_dist_, 0.0);
 
@@ -146,6 +153,7 @@ public:
 
 protected:
   costmap_3d::Costmap3DQueryPtr costmap_3d_query_;
+  costmap_3d::Costmap3DQuery::DistanceResult last_result_;
   double min_obstacle_dist_;
   double obstacle_cost_exponent_;
 

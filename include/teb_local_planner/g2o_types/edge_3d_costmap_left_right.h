@@ -92,14 +92,21 @@ public:
     geometry_msgs::Pose pose_msg;
     pose.toPoseMsg(pose_msg);
 
-    costmap_3d::Costmap3DQuery::DistanceOptions dopts;
-    dopts.relative_error = cfg_->obstacles.costmap_3d_distance_relative_error;
-    dopts.directly_use_cache_when_above_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_above_threshold;
-    dopts.directly_use_cache_when_below_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_below_threshold;
-    dopts.reuse_past_result = reuse_results;
-    dopts.signed_distance = true;
-    dopts.query_region = region_;
-    double dist = costmap_3d_query_->footprintDistance(pose_msg, dopts);
+    double dist;
+    if (!reuse_results)
+    {
+      costmap_3d::Costmap3DQuery::DistanceOptions dopts;
+      dopts.relative_error = cfg_->obstacles.costmap_3d_distance_relative_error;
+      dopts.directly_use_cache_when_above_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_above_threshold;
+      dopts.directly_use_cache_when_below_threshold = cfg_->obstacles.costmap_3d_directly_use_cache_when_below_threshold;
+      dopts.signed_distance = true;
+      dopts.query_region = region_;
+      dist = costmap_3d_query_->footprintDistance(pose_msg, dopts, &last_result_);
+    }
+    else
+    {
+      dist = costmap_3d_query_->footprintDistance(pose_msg, last_result_);
+    }
 
     // For left/right edges, make derivative zero inside the region normal
     // obstacles have influence. This prevents destabalizing a TeB that must
@@ -152,6 +159,7 @@ public:
 
 protected:
   costmap_3d::Costmap3DQueryPtr costmap_3d_query_;
+  costmap_3d::Costmap3DQuery::DistanceResult last_result_;
   double inflation_dist_;
   double inflation_cost_exponent_;
   costmap_3d::Costmap3DQuery::QueryRegion region_;
